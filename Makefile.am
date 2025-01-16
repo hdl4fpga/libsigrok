@@ -343,6 +343,12 @@ src_libdrivers_la_SOURCES += \
 	src/hardware/demo/protocol.c \
 	src/hardware/demo/api.c
 endif
+if HW_SCOPEIO
+src_libdrivers_la_SOURCES += \
+	src/hardware/scopeio/protocol.h \
+	src/hardware/scopeio/protocol.c \
+	src/hardware/scopeio/api.c
+endif
 if HW_DEVANTECH_ETH008
 src_libdrivers_la_SOURCES += \
 	src/hardware/devantech-eth008/protocol.h \

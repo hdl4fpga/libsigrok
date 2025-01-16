@@ -52,6 +52,7 @@ static struct sr_key_info sr_key_info_config[] = {
 	{SR_CONF_OSCILLOSCOPE, SR_T_STRING, NULL, "Oscilloscope", NULL},
 	{SR_CONF_MULTIMETER, SR_T_STRING, NULL, "Multimeter", NULL},
 	{SR_CONF_DEMO_DEV, SR_T_STRING, NULL, "Demo device", NULL},
+	{SR_CONF_SCOPEIO_DEV, SR_T_STRING, NULL, "ScopeIO device", NULL},
 	{SR_CONF_SOUNDLEVELMETER, SR_T_STRING, NULL, "Sound level meter", NULL},
 	{SR_CONF_THERMOMETER, SR_T_STRING, NULL, "Thermometer", NULL},
 	{SR_CONF_HYGROMETER, SR_T_STRING, NULL, "Hygrometer", NULL},

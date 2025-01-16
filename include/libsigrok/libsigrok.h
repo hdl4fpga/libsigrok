@@ -716,6 +716,9 @@ enum sr_configkey {
 	/** The device is a demo device. */
 	SR_CONF_DEMO_DEV,
 
+	/** The device is a scopeio device. */
+	SR_CONF_SCOPEIO_DEV,
+
 	/** The device can act as a sound level meter. */
 	SR_CONF_SOUNDLEVELMETER,
 

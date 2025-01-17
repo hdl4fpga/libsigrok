@@ -21,14 +21,14 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBSIGROK_HARDWARE_DEMO_PROTOCOL_H
-#define LIBSIGROK_HARDWARE_DEMO_PROTOCOL_H
+#ifndef LIBSIGROK_HARDWARE_SCOPEIO_PROTOCOL_H
+#define LIBSIGROK_HARDWARE_SCOPEIO_PROTOCOL_H
 
 #include <stdint.h>
 #include <libsigrok/libsigrok.h>
 #include "libsigrok-internal.h"
 
-#define LOG_PREFIX "demo"
+#define LOG_PREFIX "ScopeIO"
 
 /* The size in bytes of chunks to send through the session bus. */
 #define LOGIC_BUFSIZE			4096
@@ -160,8 +160,8 @@ struct analog_gen {
 	unsigned int num_avgs; /* Number of samples averaged */
 };
 
-SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc);
-SR_PRIV void demo_free_analog_pattern(struct dev_context *devc);
-SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data);
+SR_PRIV void scopeio_generate_analog_pattern(struct dev_context *devc);
+SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc);
+SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data);
 
 #endif

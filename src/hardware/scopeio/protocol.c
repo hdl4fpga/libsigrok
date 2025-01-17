@@ -173,7 +173,7 @@ static const uint8_t pattern_squid[128][128 / 8] = {
 	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 };
 
-SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
+SR_PRIV void scopeio_generate_analog_pattern(struct dev_context *devc)
 {
 	double t, frequency;
 	float amplitude, offset;
@@ -252,7 +252,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 	devc->analog_patterns[PATTERN_ANALOG_RANDOM] = pattern;
 }
 
-SR_PRIV void demo_free_analog_pattern(struct dev_context *devc)
+SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc)
 {
 	g_free(devc->analog_patterns[PATTERN_SQUARE]);
 	g_free(devc->analog_patterns[PATTERN_SINE]);
@@ -573,7 +573,7 @@ do_send:
 }
 
 /* Callback handling data */
-SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
+SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 {
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;

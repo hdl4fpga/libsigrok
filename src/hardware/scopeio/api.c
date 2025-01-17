@@ -134,7 +134,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	sdi = g_malloc0(sizeof(struct sr_dev_inst));
 	sdi->status = SR_ST_INACTIVE;
-	sdi->model = g_strdup("Demo device");
+	sdi->model = g_strdup("ScopeIO device");
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	devc->cur_samplerate = SR_KHZ(200);
@@ -167,7 +167,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * supposed to be periodic, so the generator just needs to
 		 * access the prepared sample data (DDS style).
 		 */
-		demo_generate_analog_pattern(devc);
+		scopeio_generate_analog_pattern(devc);
 
 		pattern = 0;
 		/* An "Analog" channel group with all analog channels in it. */
@@ -219,7 +219,7 @@ static void clear_helper(struct dev_context *devc)
 	GHashTableIter iter;
 	void *value;
 
-	demo_free_analog_pattern(devc);
+	scopeio_free_analog_pattern(devc);
 
 	/* Analog generators. */
 	g_hash_table_iter_init(&iter, devc->ch_ag);
@@ -562,7 +562,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		devc->first_partial_logic_mask);
 
 	sr_session_source_add(sdi->session, -1, 0, 100,
-			demo_prepare_data, (struct sr_dev_inst *)sdi);
+			scopeio_prepare_data, (struct sr_dev_inst *)sdi);
 
 	std_session_send_df_header(sdi);
 
@@ -597,9 +597,9 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	return SR_OK;
 }
 
-static struct sr_dev_driver demo_driver_info = {
-	.name = "demo",
-	.longname = "Demo driver and pattern generator",
+static struct sr_dev_driver scopeio_driver_info = {
+	.name = "ScopeIO",
+	.longname = "ScopeIO driver and pattern generator",
 	.api_version = 1,
 	.init = std_init,
 	.cleanup = std_cleanup,
@@ -615,4 +615,4 @@ static struct sr_dev_driver demo_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(demo_driver_info);
+SR_REGISTER_DEV_DRIVER(scopeio_driver_info);

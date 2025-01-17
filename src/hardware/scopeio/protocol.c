@@ -31,6 +31,9 @@
 
 #define ANALOG_SAMPLES_PER_PERIOD 20
 
+SR_PRIV int scopeio_sockfd;
+SR_PRIV struct sockaddr_in scopeio_server_addr;
+
 static const uint8_t pattern_sigrok[] = {
 	0x4c, 0x92, 0x92, 0x92, 0x64, 0x00, 0x00, 0x00,
 	0x82, 0xfe, 0xfe, 0x82, 0x00, 0x00, 0x00, 0x00,
@@ -399,10 +402,43 @@ static void logic_fixup_feed(struct dev_context *devc,
 	}
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
 static void send_analog_packet(struct analog_gen *ag,
 		struct sr_dev_inst *sdi, uint64_t *analog_sent,
 		uint64_t analog_pos, uint64_t analog_todo)
 {
+	for(int i = 0; i < 16; i++) {
+		static union { char byte[4]; int word; } hton;
+		static char buff[256];
+		static char *ptr;
+
+		ptr = buff+sizeof(short);
+    	*ptr++ = 0x17;
+    	*ptr++ = 0x02;
+    	*ptr++ = 0x00;
+    	*ptr++ = 0x03;
+    	*ptr++ = 0xff;
+    	*ptr++ = 0x16;
+    	*ptr++ = 0x03;
+		hton.word = htonl((i << 10));
+    	*ptr++ = hton.byte[0] | 0x80;
+    	*ptr++ = hton.byte[1];
+    	*ptr++ = hton.byte[2];
+    	*ptr++ = hton.byte[3];
+		*(short *)buff = ptr-buff-sizeof(short);
+
+		sendto(scopeio_sockfd, buff, ptr-buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
+		socklen_t addr_len = sizeof(scopeio_server_addr);
+		static char buffer[1024];
+		int n = recvfrom(scopeio_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+	}
+
+
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
 	struct analog_pattern *pattern;

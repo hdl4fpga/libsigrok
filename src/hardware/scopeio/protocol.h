@@ -163,5 +163,7 @@ struct analog_gen {
 SR_PRIV void scopeio_generate_analog_pattern(struct dev_context *devc);
 SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc);
 SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data);
+extern SR_PRIV int scopeio_sockfd;
+extern SR_PRIV struct sockaddr_in scopeio_server_addr;
 
 #endif

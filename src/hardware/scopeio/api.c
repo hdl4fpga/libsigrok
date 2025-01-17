@@ -597,9 +597,57 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	return SR_OK;
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+static char buffer[BUFFER_SIZE];
+
+static int dev_open(struct sr_dev_inst *sdi)
+{
+
+	// Create UDP socket
+	if ((scopeio_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		sr_err("Socket creation failed");
+		return SR_ERR;
+	}
+
+	memset(&scopeio_server_addr, 0, sizeof(scopeio_server_addr));
+
+	// Configure server address
+	scopeio_server_addr.sin_family = AF_INET; // IPv4
+	scopeio_server_addr.sin_port = htons(PORT);
+	scopeio_server_addr.sin_addr.s_addr = INADDR_ANY;
+
+	// Send message to server
+	// const char *message = "Hello, Server!\n";
+	return SR_OK;
+
+	// Receive response from server
+	socklen_t addr_len = sizeof(scopeio_server_addr);
+	int n = recvfrom(scopeio_sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+	buffer[n] = '\0';
+	printf("Server: %s\n", buffer);
+
+	close(scopeio_sockfd);
+
+
+	return SR_OK;
+}
+
+static int dev_close(struct sr_dev_inst *sdi)
+{
+	return SR_OK;
+}
+
 static struct sr_dev_driver scopeio_driver_info = {
 	.name = "ScopeIO",
-	.longname = "ScopeIO driver and pattern generator",
+	.longname = "ScopeIO driver",
 	.api_version = 1,
 	.init = std_init,
 	.cleanup = std_cleanup,
@@ -609,8 +657,10 @@ static struct sr_dev_driver scopeio_driver_info = {
 	.config_get = config_get,
 	.config_set = config_set,
 	.config_list = config_list,
-	.dev_open = std_dummy_dev_open,
-	.dev_close = std_dummy_dev_close,
+	// .dev_open = std_dummy_dev_open,
+	.dev_open = dev_open,
+	// .dev_close = std_dummy_dev_close,
+	.dev_close = dev_close,
 	.dev_acquisition_start = dev_acquisition_start,
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,

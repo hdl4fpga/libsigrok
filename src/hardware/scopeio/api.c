@@ -610,32 +610,15 @@ static char buffer[BUFFER_SIZE];
 
 static int dev_open(struct sr_dev_inst *sdi)
 {
-
-	// Create UDP socket
 	if ((scopeio_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		sr_err("Socket creation failed");
 		return SR_ERR;
 	}
-
 	memset(&scopeio_server_addr, 0, sizeof(scopeio_server_addr));
 
-	// Configure server address
 	scopeio_server_addr.sin_family = AF_INET; // IPv4
 	scopeio_server_addr.sin_port = htons(PORT);
 	scopeio_server_addr.sin_addr.s_addr = INADDR_ANY;
-
-	// Send message to server
-	// const char *message = "Hello, Server!\n";
-	return SR_OK;
-
-	// Receive response from server
-	socklen_t addr_len = sizeof(scopeio_server_addr);
-	int n = recvfrom(scopeio_sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
-	buffer[n] = '\0';
-	printf("Server: %s\n", buffer);
-
-	close(scopeio_sockfd);
-
 
 	return SR_OK;
 }

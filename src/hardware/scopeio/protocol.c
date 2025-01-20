@@ -408,6 +408,7 @@ static void logic_fixup_feed(struct dev_context *devc,
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define BLOCK 1024
 static void send_analog_packet(struct analog_gen *ag,
 		struct sr_dev_inst *sdi, uint64_t *analog_sent,
 		uint64_t analog_pos, uint64_t analog_todo)
@@ -421,8 +422,8 @@ static void send_analog_packet(struct analog_gen *ag,
     	*ptr++ = 0x17;
     	*ptr++ = 0x02;
     	*ptr++ = 0x00;
-    	*ptr++ = 0x03;
-    	*ptr++ = 0xff;
+    	*ptr++ = (BLOCK-1)/256; //0x03;
+    	*ptr++ = (BLOCK-1)%256; //0xff;
     	*ptr++ = 0x16;
     	*ptr++ = 0x03;
 		// hton.word = htonl((i << 10));
@@ -434,7 +435,7 @@ static void send_analog_packet(struct analog_gen *ag,
 
 		sendto(scopeio_sockfd, buff, ptr-buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
 		socklen_t addr_len = sizeof(scopeio_server_addr);
-		static char buffer[1024+6+1024/256*2];
+		static char buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
 
 		int n;
 		for (ptr = buffer; ptr-buffer < sizeof(buffer); ptr += n) {

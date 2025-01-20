@@ -434,8 +434,12 @@ static void send_analog_packet(struct analog_gen *ag,
 
 		sendto(scopeio_sockfd, buff, ptr-buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
 		socklen_t addr_len = sizeof(scopeio_server_addr);
-		static char buffer[1024];
-		int n = recvfrom(scopeio_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+		static char buffer[1024+6+1024/256*2];
+
+		int n;
+		for (ptr = buffer; ptr-buffer < sizeof(buffer); ptr += n) {
+			n = recvfrom(scopeio_sockfd, ptr, sizeof(buffer)-(ptr-buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+		}
 	// }
 
 

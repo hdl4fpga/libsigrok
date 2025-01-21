@@ -402,6 +402,45 @@ static void logic_fixup_feed(struct dev_context *devc,
 	}
 }
 
+#define CHAR_WIDTH    8
+#define CHANNELS      8
+#define SAMPLE_WIDTH 13
+
+void *decode (short *samples, const char *block, size_t length);
+static int acc  = 0;
+static int data = 0;
+
+void *decode (short *samples, const char *block, size_t length)
+{
+	for (size_t i = 0; i < length; i++) {
+		unsigned int sample;
+
+		switch(*block++) {
+		case 0x18:
+			int length;
+			length = *block++;
+
+			for (int i = 0; i <= length; i++) {
+				data <<= CHAR_WIDTH;
+				data |= *block++;
+				acc += CHAR_WIDTH;
+				data &= ((1 << (SAMPLE_WIDTH+CHAR_WIDTH-1))-1);
+				if (acc >= SAMPLE_WIDTH) {
+					acc %= SAMPLE_WIDTH;
+					sample = data;
+					sample >>= acc;
+					sample &= (1 << SAMPLE_WIDTH)-1;
+					*samples++ = sample;
+				}
+			}
+			break;
+		default:
+			block += (*block + 2);
+		}
+	}
+	return samples;
+}
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -438,11 +477,14 @@ static void send_analog_packet(struct analog_gen *ag,
 		static char buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
 
 		int n;
-		for (ptr = buffer; ptr-buffer < sizeof(buffer); ptr += n) {
+		for (ptr = buffer; (size_t) (ptr-buffer) < sizeof(buffer); ptr += n) {
 			n = recvfrom(scopeio_sockfd, ptr, sizeof(buffer)-(ptr-buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
 		}
 	// }
-
+	acc  = 0;
+	data = 0;
+	short samples[1024];
+	decode(samples, buffer, sizeof(buffer));
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;

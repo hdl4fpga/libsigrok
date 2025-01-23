@@ -406,11 +406,11 @@ static void logic_fixup_feed(struct dev_context *devc,
 #define CHANNELS      8
 #define SAMPLE_WIDTH 13
 
-void *decode (short *samples, const char *block, size_t length);
+float *decode (float *samples, const char *block, size_t length);
 static int acc  = 0;
 static int data = 0;
 
-void *decode (short *samples, const char *block, size_t length)
+float *decode (float *samples, const char *block, size_t length)
 {
 	for (size_t i = 0; i < length; i++) {
 		unsigned int sample;
@@ -448,6 +448,8 @@ void *decode (short *samples, const char *block, size_t length)
 #include <unistd.h>
 
 #define BLOCK 1024
+static float values[1024];
+
 static void send_analog_packet(struct analog_gen *ag,
 		struct sr_dev_inst *sdi, uint64_t *analog_sent,
 		uint64_t analog_pos, uint64_t analog_todo)
@@ -483,8 +485,7 @@ static void send_analog_packet(struct analog_gen *ag,
 	// }
 	acc  = 0;
 	data = 0;
-	short samples[1024];
-	decode(samples, buffer, sizeof(buffer));
+	decode(values, buffer, sizeof(buffer));
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
@@ -607,6 +608,9 @@ static void send_analog_packet(struct analog_gen *ag,
 			ag->packet.data = pattern->data + ag_pattern_pos;
 		}
 		ag->packet.num_samples = sending_now;
+
+		ag->packet.data = values;
+		ag->packet.num_samples = 630;
 		sr_session_send(sdi, &packet);
 
 		/* Whichever channel group gets there first. */

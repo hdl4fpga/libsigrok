@@ -402,6 +402,12 @@ static void logic_fixup_feed(struct dev_context *devc,
 	}
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
 #define CHAR_WIDTH    8
 #define CHANNELS      8
 #define SAMPLE_WIDTH 13
@@ -418,7 +424,7 @@ float *decode (float *samples, const char *block, size_t length)
 		switch(*block++) {
 		case 0x18:
 			int length;
-			length = *block++;
+			length = (unsigned char) *block++;
 
 			for (int i = 0; i <= length; i++) {
 				data <<= CHAR_WIDTH;
@@ -440,12 +446,6 @@ float *decode (float *samples, const char *block, size_t length)
 	}
 	return samples;
 }
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 
 #define BLOCK 1024
 static float values[1024];
@@ -485,7 +485,7 @@ static void send_analog_packet(struct analog_gen *ag,
 	// }
 	acc  = 0;
 	data = 0;
-	decode(values, buffer, sizeof(buffer));
+	float *xxx = decode(values, buffer, sizeof(buffer));
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;

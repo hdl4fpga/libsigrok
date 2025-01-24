@@ -412,11 +412,12 @@ static void logic_fixup_feed(struct dev_context *devc,
 #define CHANNELS      8
 #define SAMPLE_WIDTH 13
 
-float *decode (float *samples, const char *block, size_t length);
+float *decode (float *samples, const unsigned char *block, size_t length);
 static int acc  = 0;
 static int data = 0;
+static int j = 0;
 
-float *decode (float *samples, const char *block, size_t length)
+float *decode (float *samples, const unsigned char *block, size_t length)
 {
 	for (size_t i = 0; i < length; i++) {
 		unsigned int sample;
@@ -424,7 +425,7 @@ float *decode (float *samples, const char *block, size_t length)
 		switch(*block++) {
 		case 0x18:
 			int length;
-			length = (unsigned char) *block++;
+			length = *block++;
 
 			for (int i = 0; i <= length; i++) {
 				data <<= CHAR_WIDTH;
@@ -436,7 +437,11 @@ float *decode (float *samples, const char *block, size_t length)
 					sample = data;
 					sample >>= acc;
 					sample &= (1 << SAMPLE_WIDTH)-1;
-					*samples++ = sample;
+					if (j < 1) {
+						fprintf(stderr,"---> %d\n", sample);
+						*samples++ = sample;
+					}
+					j = (j+1) % 8;
 				}
 			}
 			break;
@@ -454,10 +459,14 @@ static void send_analog_packet(struct analog_gen *ag,
 		struct sr_dev_inst *sdi, uint64_t *analog_sent,
 		uint64_t analog_pos, uint64_t analog_todo)
 {
-	// for(int i = 0; i < 16; i++) {
+	acc  = 0;
+	data = 0;
+	j = 0;
+	float *xxx = values;
+	for(int i = 0; i < 16; i++) {
 		static union { char byte[4]; int word; } hton;
-		static char buff[256];
-		static char *ptr;
+		static unsigned char buff[256];
+		static unsigned char *ptr;
 
 		ptr = buff+sizeof(short);
     	*ptr++ = 0x17;
@@ -467,7 +476,7 @@ static void send_analog_packet(struct analog_gen *ag,
     	*ptr++ = (BLOCK-1)%256; //0xff;
     	*ptr++ = 0x16;
     	*ptr++ = 0x03;
-		// hton.word = htonl((i << 10));
+		hton.word = htonl((i << 10));
     	*ptr++ = hton.byte[0] | 0x80;
     	*ptr++ = hton.byte[1];
     	*ptr++ = hton.byte[2];
@@ -476,16 +485,14 @@ static void send_analog_packet(struct analog_gen *ag,
 
 		sendto(scopeio_sockfd, buff, ptr-buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
 		socklen_t addr_len = sizeof(scopeio_server_addr);
-		static char buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
+		static char unsigned buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
 
 		int n;
 		for (ptr = buffer; (size_t) (ptr-buffer) < sizeof(buffer); ptr += n) {
 			n = recvfrom(scopeio_sockfd, ptr, sizeof(buffer)-(ptr-buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
 		}
-	// }
-	acc  = 0;
-	data = 0;
-	float *xxx = decode(values, buffer, sizeof(buffer));
+		xxx = decode(xxx, buffer, sizeof(buffer));
+	}
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
@@ -610,7 +617,7 @@ static void send_analog_packet(struct analog_gen *ag,
 		ag->packet.num_samples = sending_now;
 
 		ag->packet.data = values;
-		ag->packet.num_samples = 630;
+		ag->packet.num_samples = xxx-values; //630;
 		sr_session_send(sdi, &packet);
 
 		/* Whichever channel group gets there first. */

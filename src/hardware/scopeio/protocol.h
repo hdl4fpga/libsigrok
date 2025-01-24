@@ -91,24 +91,33 @@ enum logic_pattern_type {
 
 /* Analog patterns we can generate. */
 enum analog_pattern_type {
-	PATTERN_SQUARE,
-	PATTERN_SINE,
-	PATTERN_TRIANGLE,
-	PATTERN_SAWTOOTH,
-	PATTERN_ANALOG_RANDOM,
+	GN14,
+	GP14,
+	GN15,
+	GP15,
+	GN16,
+	GP16,
+	GN17,
+	GP17
 };
 
 static const char *analog_pattern_str[] = {
-	"square",
-	"sine",
-	"triangle",
-	"sawtooth",
-	"random",
+	"GN14",
+	"GP14",
+	"GN15",
+	"GP15",
+	"GN16",
+	"GP16",
+	"GN17",
+	"GP17",
 };
 
 struct analog_pattern {
 	float data[ANALOG_BUFSIZE];
 	unsigned int num_samples;
+};
+
+struct scopeio_devcontext {
 };
 
 struct dev_context {

@@ -173,7 +173,6 @@ static void send_analog_packet(struct analog_gen *ag,
 	int ag_pattern_pos;
 	unsigned int i;
 	float amplitude, offset, value;
-	float *data;
 
 	if (!ag->ch || !ag->ch->enabled)
 		return;
@@ -261,34 +260,10 @@ static void send_analog_packet(struct analog_gen *ag,
 	if (!devc->avg) {
 		ag_pattern_pos = analog_pos % pattern->num_samples;
 		sending_now = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
-		if (ag->amplitude != DEFAULT_ANALOG_AMPLITUDE ||
-			ag->offset != DEFAULT_ANALOG_OFFSET ||
-			ag->pattern == PATTERN_ANALOG_RANDOM) {
-			/*
-			 * Amplitude or offset changed (or we are generating
-			 * random data), modify each sample.
-			 */
-			if (ag->pattern == PATTERN_ANALOG_RANDOM) {
-				amplitude = ag->amplitude / 500.0;
-				offset = ag->offset - DEFAULT_ANALOG_OFFSET - ag->amplitude;
-			} else {
-				amplitude = ag->amplitude / DEFAULT_ANALOG_AMPLITUDE;
-				offset = ag->offset - DEFAULT_ANALOG_OFFSET;
-			}
-			data = ag->packet.data;
-			for (i = 0; i < sending_now; i++) {
-				if (ag->pattern == PATTERN_ANALOG_RANDOM)
-					data[i] = (rand() % 1000) * amplitude + offset;
-				else
-					data[i] = pattern->data[ag_pattern_pos + i] * amplitude + offset;
-			}
-		} else {
-			/* Amplitude and offset unchanged, use the fast way. */
-			ag->packet.data = pattern->data + ag_pattern_pos;
-		}
 		ag->packet.num_samples = sending_now;
 
 		ag->packet.data = values;
+
 		ag->packet.num_samples = xxx-values; //630;
 		sr_session_send(sdi, &packet);
 
@@ -297,20 +272,7 @@ static void send_analog_packet(struct analog_gen *ag,
 	} else {
 		ag_pattern_pos = analog_pos % pattern->num_samples;
 		to_avg = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
-		if (ag->pattern == PATTERN_ANALOG_RANDOM) {
-			amplitude = ag->amplitude / 500.0;
-			offset = ag->offset - DEFAULT_ANALOG_OFFSET - ag->amplitude;
-		} else {
-			amplitude = ag->amplitude / DEFAULT_ANALOG_AMPLITUDE;
-			offset = ag->offset - DEFAULT_ANALOG_OFFSET;
-		}
-
 		for (i = 0; i < to_avg; i++) {
-			if (ag->pattern == PATTERN_ANALOG_RANDOM)
-				value = (rand() % 1000) * amplitude + offset;
-			else
-				value = *(pattern->data + ag_pattern_pos + i) * amplitude + offset;
-			ag->avg_val = (ag->avg_val + value) / 2;
 			ag->num_avgs++;
 			/* Time to send averaged data? */
 			if ((devc->avg_samples > 0) && (ag->num_avgs >= devc->avg_samples))
@@ -416,7 +378,6 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 		if (logic_done < samples_todo) {
 			sending_now = MIN(samples_todo - logic_done,
 					LOGIC_BUFSIZE / devc->logic_unitsize);
-			logic_generator(sdi, sending_now * devc->logic_unitsize);
 			/* Check for trigger and send pre-trigger data if needed */
 			if (devc->stl && (!devc->trigger_fired)) {
 				trigger_offset = soft_trigger_logic_check(devc->stl,

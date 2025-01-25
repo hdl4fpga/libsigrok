@@ -167,8 +167,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * supposed to be periodic, so the generator just needs to
 		 * access the prepared sample data (DDS style).
 		 */
-		scopeio_generate_analog_pattern(devc);
-
 		pattern = 0;
 		/* An "Analog" channel group with all analog channels in it. */
 		acg = sr_channel_group_new(sdi, "Analog", NULL);
@@ -604,12 +602,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 #include <unistd.h>
 
 #define PORT 8080
-#define BUFFER_SIZE 1024
-
-static char buffer[BUFFER_SIZE];
 
 static int dev_open(struct sr_dev_inst *sdi)
 {
+	(void) sdi;
 	if ((scopeio_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		sr_err("Socket creation failed");
 		return SR_ERR;
@@ -625,6 +621,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 
 static int dev_close(struct sr_dev_inst *sdi)
 {
+	(void) sdi;
 	return SR_OK;
 }
 

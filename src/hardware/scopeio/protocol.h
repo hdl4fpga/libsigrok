@@ -169,7 +169,6 @@ struct analog_gen {
 	unsigned int num_avgs; /* Number of samples averaged */
 };
 
-SR_PRIV void scopeio_generate_analog_pattern(struct dev_context *devc);
 SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc);
 SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data);
 extern SR_PRIV int scopeio_sockfd;

@@ -32,7 +32,7 @@
 #define DEFAULT_NUM_LOGIC_CHANNELS		8
 #define DEFAULT_LOGIC_PATTERN			PATTERN_SIGROK
 
-#define DEFAULT_NUM_ANALOG_CHANNELS		5
+#define DEFAULT_NUM_ANALOG_CHANNELS		8
 
 /* Note: No spaces allowed because of sigrok-cli. */
 static const char *logic_pattern_str[] = {
@@ -172,7 +172,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		acg = sr_channel_group_new(sdi, "Analog", NULL);
 
 		for (i = 0; i < num_analog_channels; i++) {
-			snprintf(channel_name, 16, "A%d", i);
+			snprintf(channel_name, 16, scopeio_analog_pattern_str[i]);
 			ch = sr_channel_new(sdi, i + num_logic_channels, SR_CHANNEL_ANALOG,
 					TRUE, channel_name);
 			acg->channels = g_slist_append(acg->channels, ch);
@@ -196,13 +196,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			ag->packet.meaning->unit = ag->unit;
 			ag->packet.encoding->digits = DEFAULT_ANALOG_ENCODING_DIGITS;
 			ag->packet.spec->spec_digits = DEFAULT_ANALOG_SPEC_DIGITS;
-			ag->packet.data = devc->analog_patterns[pattern];
+			// ag->packet.data = devc->analog_patterns[pattern];
 			ag->pattern = pattern;
 			ag->avg_val = 0.0f;
 			ag->num_avgs = 0;
 			g_hash_table_insert(devc->ch_ag, ch, ag);
 
-			if (++pattern == ARRAY_SIZE(analog_pattern_str))
+			if (++pattern == ARRAY_SIZE(scopeio_analog_pattern_str))
 				pattern = 0;
 		}
 	}
@@ -217,7 +217,7 @@ static void clear_helper(struct dev_context *devc)
 	GHashTableIter iter;
 	void *value;
 
-	scopeio_free_analog_pattern(devc);
+	// scopeio_free_analog_pattern(devc);
 
 	/* Analog generators. */
 	g_hash_table_iter_init(&iter, devc->ch_ag);
@@ -286,7 +286,7 @@ static int config_get(uint32_t key, GVariant **data,
 		} else if (ch->type == SR_CHANNEL_ANALOG) {
 			ag = g_hash_table_lookup(devc->ch_ag, ch);
 			pattern = ag->pattern;
-			*data = g_variant_new_string(analog_pattern_str[pattern]);
+			*data = g_variant_new_string(scopeio_analog_pattern_str[pattern]);
 		} else
 			return SR_ERR_BUG;
 		break;
@@ -374,7 +374,7 @@ static int config_set(uint32_t key, GVariant *data,
 		if (!cg)
 			return SR_ERR_CHANNEL_GROUP;
 		logic_pattern = std_str_idx(data, ARRAY_AND_SIZE(logic_pattern_str));
-		analog_pattern = std_str_idx(data, ARRAY_AND_SIZE(analog_pattern_str));
+		analog_pattern = std_str_idx(data, ARRAY_AND_SIZE(scopeio_analog_pattern_str));
 		if (logic_pattern < 0 && analog_pattern < 0)
 			return SR_ERR_ARG;
 		for (l = cg->channels; l; l = l->next) {
@@ -394,7 +394,7 @@ static int config_set(uint32_t key, GVariant *data,
 				if (analog_pattern == -1)
 					return SR_ERR_ARG;
 				sr_dbg("Setting analog pattern for channel %s to %s",
-						ch->name, analog_pattern_str[analog_pattern]);
+						ch->name, scopeio_analog_pattern_str[analog_pattern]);
 				ag = g_hash_table_lookup(devc->ch_ag, ch);
 				ag->pattern = analog_pattern;
 			} else
@@ -475,7 +475,7 @@ static int config_list(uint32_t key, GVariant **data,
 			if (ch->type == SR_CHANNEL_LOGIC)
 				*data = g_variant_new_strv(ARRAY_AND_SIZE(logic_pattern_str));
 			else if (ch->type == SR_CHANNEL_ANALOG)
-				*data = g_variant_new_strv(ARRAY_AND_SIZE(analog_pattern_str));
+				*data = g_variant_new_strv(ARRAY_AND_SIZE(scopeio_analog_pattern_str));
 			else
 				return SR_ERR_BUG;
 			break;

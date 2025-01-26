@@ -31,20 +31,31 @@
 
 #define ANALOG_SAMPLES_PER_PERIOD 20
 
+SR_PRIV const char *scopeio_analog_pattern_str[] = {
+	"GN14",
+	"GP14",
+	"GN15",
+	"GP15",
+	"GN16",
+	"GP16",
+	"GN17",
+	"GP17",
+};
+
 SR_PRIV int scopeio_sockfd;
 SR_PRIV struct sockaddr_in scopeio_server_addr;
 
-SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc)
-{
-	g_free(devc->analog_patterns[GN14]);
-	g_free(devc->analog_patterns[GP14]);
-	g_free(devc->analog_patterns[GN15]);
-	g_free(devc->analog_patterns[GP15]);
-	g_free(devc->analog_patterns[GN16]);
-	g_free(devc->analog_patterns[GP16]);
-	g_free(devc->analog_patterns[GN17]);
-	g_free(devc->analog_patterns[GP17]);
-}
+// SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc)
+// {
+	// g_free(devc->analog_patterns[GN14]);
+	// g_free(devc->analog_patterns[GP14]);
+	// g_free(devc->analog_patterns[GN15]);
+	// g_free(devc->analog_patterns[GP15]);
+	// g_free(devc->analog_patterns[GN16]);
+	// g_free(devc->analog_patterns[GP16]);
+	// g_free(devc->analog_patterns[GN17]);
+	// g_free(devc->analog_patterns[GP17]);
+// }
 
 /*
  * Fixup a memory image of generated logic data before it gets sent to
@@ -127,9 +138,10 @@ float *decode (float *samples, const unsigned char *block, size_t length)
 #define BLOCK 1024
 static float values[1024];
 
-static void send_analog_packet(struct analog_gen *ag,
-		struct sr_dev_inst *sdi, uint64_t *analog_sent,
-		uint64_t analog_pos, uint64_t analog_todo)
+static void send_analog_packet(
+	struct analog_gen *ag,
+	struct sr_dev_inst *sdi, 
+	uint64_t *analog_sent)
 {
 	acc  = 0;
 	data = 0;
@@ -168,7 +180,6 @@ static void send_analog_packet(struct analog_gen *ag,
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
-	struct analog_pattern *pattern;
 	uint64_t sending_now, to_avg;
 	int ag_pattern_pos;
 	unsigned int i;
@@ -180,8 +191,6 @@ static void send_analog_packet(struct analog_gen *ag,
 	devc = sdi->priv;
 	packet.type = SR_DF_ANALOG;
 	packet.payload = &ag->packet;
-
-	pattern = devc->analog_patterns[ag->pattern];
 
 	ag->packet.meaning->channels = g_slist_append(NULL, ag->ch);
 	ag->packet.meaning->mq = ag->mq;
@@ -258,9 +267,9 @@ static void send_analog_packet(struct analog_gen *ag,
 		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
 
 	if (!devc->avg) {
-		ag_pattern_pos = analog_pos % pattern->num_samples;
-		sending_now = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
-		ag->packet.num_samples = sending_now;
+		// ag_pattern_pos = analog_pos % pattern->num_samples;
+		// sending_now = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
+		// ag->packet.num_samples = sending_now;
 
 		ag->packet.data = values;
 
@@ -269,35 +278,7 @@ static void send_analog_packet(struct analog_gen *ag,
 
 		/* Whichever channel group gets there first. */
 		*analog_sent = MAX(*analog_sent, sending_now);
-	} else {
-		ag_pattern_pos = analog_pos % pattern->num_samples;
-		to_avg = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
-		for (i = 0; i < to_avg; i++) {
-			ag->num_avgs++;
-			/* Time to send averaged data? */
-			if ((devc->avg_samples > 0) && (ag->num_avgs >= devc->avg_samples))
-				goto do_send;
-		}
-
-		if (devc->avg_samples == 0) {
-			/*
-			 * We're averaging all the samples, so wait with
-			 * sending until the very end.
-			 */
-			*analog_sent = ag->num_avgs;
-			return;
-		}
-
-do_send:
-		ag->packet.data = &ag->avg_val;
-		ag->packet.num_samples = 1;
-
-		sr_session_send(sdi, &packet);
-		*analog_sent = ag->num_avgs;
-
-		ag->num_avgs = 0;
-		ag->avg_val = 0.0f;
-	}
+	} 
 }
 
 /* Callback handling data */
@@ -310,7 +291,7 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 	struct analog_gen *ag;
 	GHashTableIter iter;
 	void *value;
-	uint64_t samples_todo, logic_done, analog_done, analog_sent, sending_now;
+	uint64_t analog_sent, sending_now;
 	int64_t elapsed_us, limit_us, todo_us;
 	int64_t trigger_offset;
 	int pre_trigger_samples;
@@ -323,8 +304,7 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 
 	/* Just in case. */
 	if (devc->cur_samplerate <= 0
-			|| (devc->num_logic_channels <= 0
-			&& devc->num_analog_channels <= 0)) {
+			&& devc->num_analog_channels <= 0) {
 		sr_dev_acquisition_stop(sdi);
 		return G_SOURCE_CONTINUE;
 	}
@@ -337,112 +317,47 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 	else
 		todo_us = MAX(0, elapsed_us - devc->spent_us);
 
-	/* How many samples are outstanding since the last round? */
-	samples_todo = (todo_us * devc->cur_samplerate + G_USEC_PER_SEC - 1)
-			/ G_USEC_PER_SEC;
-
 	if (devc->limit_samples > 0) {
-		if (devc->limit_samples < devc->sent_samples)
-			samples_todo = 0;
-		else if (devc->limit_samples - devc->sent_samples < samples_todo)
-			samples_todo = devc->limit_samples - devc->sent_samples;
+		// if (devc->limit_samples < devc->sent_samples)
+			// samples_todo = 0;
+		// else if (devc->limit_samples - devc->sent_samples < samples_todo)
+			// samples_todo = devc->limit_samples - devc->sent_samples;
 	}
 
-	if (samples_todo == 0)
-		return G_SOURCE_CONTINUE;
+	// if (samples_todo == 0)
+		// return G_SOURCE_CONTINUE;
 
 	if (devc->limit_frames) {
 		/* Never send more samples than a frame can fit... */
-		samples_todo = MIN(samples_todo, SAMPLES_PER_FRAME);
+		// samples_todo = MIN(samples_todo, SAMPLES_PER_FRAME);
 		/* ...or than we need to finish the current frame. */
-		samples_todo = MIN(samples_todo,
-			SAMPLES_PER_FRAME - devc->sent_frame_samples);
+		// samples_todo = MIN(samples_todo,
+			// SAMPLES_PER_FRAME - devc->sent_frame_samples);
 	}
 
 	/* Calculate the actual time covered by this run back from the sample
 	 * count, rounded towards zero. This avoids getting stuck on a too-low
 	 * time delta with no samples being sent due to round-off.
 	 */
-	todo_us = samples_todo * G_USEC_PER_SEC / devc->cur_samplerate;
+	// todo_us = samples_todo * G_USEC_PER_SEC / devc->cur_samplerate;
 
-	logic_done = devc->num_logic_channels > 0 ? 0 : samples_todo;
-	if (!devc->enabled_logic_channels)
-		logic_done = samples_todo;
-
-	analog_done = devc->num_analog_channels > 0 ? 0 : samples_todo;
 	if (!devc->enabled_analog_channels)
-		analog_done = samples_todo;
 
-	while (logic_done < samples_todo || analog_done < samples_todo) {
 		/* Logic */
-		if (logic_done < samples_todo) {
-			sending_now = MIN(samples_todo - logic_done,
-					LOGIC_BUFSIZE / devc->logic_unitsize);
-			/* Check for trigger and send pre-trigger data if needed */
-			if (devc->stl && (!devc->trigger_fired)) {
-				trigger_offset = soft_trigger_logic_check(devc->stl,
-						devc->logic_data, sending_now * devc->logic_unitsize,
-						&pre_trigger_samples);
-				if (trigger_offset > -1) {
-					devc->trigger_fired = TRUE;
-					logic_done = pre_trigger_samples;
-				}
-			} else
-				trigger_offset = 0;
-
-			/* Send logic samples if needed */
-			packet.type = SR_DF_LOGIC;
-			packet.payload = &logic;
-			logic.unitsize = devc->logic_unitsize;
-
-			if (devc->stl) {
-				if (devc->trigger_fired && (trigger_offset < (int)sending_now)) {
-					/* Send after-trigger data */
-					logic.length = (sending_now - trigger_offset) * devc->logic_unitsize;
-					logic.data = devc->logic_data + trigger_offset * devc->logic_unitsize;
-					logic_fixup_feed(devc, &logic);
-					sr_session_send(sdi, &packet);
-					logic_done += sending_now - trigger_offset;
-					/* End acquisition */
-					sr_dbg("Triggered, stopping acquisition.");
-					sr_dev_acquisition_stop(sdi);
-					break;
-				} else {
-					/* Send nothing */
-					logic_done += sending_now;
-				}
-			} else if (!devc->stl) {
-				/* No trigger defined, send logic samples */
-				logic.length = sending_now * devc->logic_unitsize;
-				logic.data = devc->logic_data;
-				logic_fixup_feed(devc, &logic);
-				sr_session_send(sdi, &packet);
-				logic_done += sending_now;
-			}
-		}
 
 		/* Analog, one channel at a time */
-		if (analog_done < samples_todo) {
-			analog_sent = 0;
+		analog_sent = 0;
 
-			g_hash_table_iter_init(&iter, devc->ch_ag);
-			while (g_hash_table_iter_next(&iter, NULL, &value)) {
-				send_analog_packet(value, sdi, &analog_sent,
-						devc->sent_samples + analog_done,
-						samples_todo - analog_done);
-			}
-			analog_done += analog_sent;
-		}
+	g_hash_table_iter_init(&iter, devc->ch_ag);
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		send_analog_packet(value, sdi, &analog_sent);
+		fprintf(stderr,"*************\n");
 	}
 
-	uint64_t min = MIN(logic_done, analog_done);
-	devc->sent_samples += min;
-	devc->sent_frame_samples += min;
 	devc->spent_us += todo_us;
 
-	if (devc->limit_frames && devc->sent_frame_samples >= SAMPLES_PER_FRAME) {
+	if (devc->limit_frames ) {
 		std_session_send_df_frame_end(sdi);
-		devc->sent_frame_samples = 0;
 		devc->limit_frames--;
 		if (!devc->limit_frames) {
 			sr_dbg("Requested number of frames reached.");
@@ -450,26 +365,8 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 		}
 	}
 
-	if ((devc->limit_samples > 0 && devc->sent_samples >= devc->limit_samples)
-			|| (limit_us > 0 && devc->spent_us >= limit_us)) {
-
-		/* If we're averaging everything - now is the time to send data */
-		if (devc->avg && devc->avg_samples == 0) {
-			g_hash_table_iter_init(&iter, devc->ch_ag);
-			while (g_hash_table_iter_next(&iter, NULL, &value)) {
-				ag = value;
-				packet.type = SR_DF_ANALOG;
-				packet.payload = &ag->packet;
-				ag->packet.data = &ag->avg_val;
-				ag->packet.num_samples = 1;
-				sr_session_send(sdi, &packet);
-			}
-		}
-		sr_dbg("Requested number of samples reached.");
-		sr_dev_acquisition_stop(sdi);
-	} else if (devc->limit_frames) {
-		if (devc->sent_frame_samples == 0)
-			std_session_send_df_frame_begin(sdi);
+	if (devc->limit_frames) {
+		std_session_send_df_frame_begin(sdi);
 	}
 
 	return G_SOURCE_CONTINUE;

@@ -90,7 +90,7 @@ enum logic_pattern_type {
 };
 
 /* Analog patterns we can generate. */
-enum analog_pattern_type {
+enum analog_channel {
 	GN14,
 	GP14,
 	GN15,
@@ -101,16 +101,7 @@ enum analog_pattern_type {
 	GP17
 };
 
-static const char *analog_pattern_str[] = {
-	"GN14",
-	"GP14",
-	"GN15",
-	"GP15",
-	"GN16",
-	"GP16",
-	"GN17",
-	"GP17",
-};
+extern SR_PRIV const char *scopeio_analog_pattern_str[GP17+1];
 
 struct analog_pattern {
 	float data[ANALOG_BUFSIZE];
@@ -125,20 +116,14 @@ struct dev_context {
 	uint64_t limit_samples;
 	uint64_t limit_msec;
 	uint64_t limit_frames;
-	uint64_t sent_samples;
-	uint64_t sent_frame_samples; /* Number of samples that were sent for current frame. */
 	int64_t start_us;
 	int64_t spent_us;
 	uint64_t step;
-	/* Logic */
-	int32_t num_logic_channels;
-	size_t logic_unitsize;
-	uint64_t all_logic_channels_mask;
 	/* There is only ever one logic channel group, so its pattern goes here. */
 	enum logic_pattern_type logic_pattern;
 	uint8_t logic_data[LOGIC_BUFSIZE];
 	/* Analog */
-	struct analog_pattern *analog_patterns[ARRAY_SIZE(analog_pattern_str)];
+	// struct analog_pattern *analog_patterns[ARRAY_SIZE(analog_pattern_str)];
 	int32_t num_analog_channels;
 	GHashTable *ch_ag;
 	gboolean avg; /* True if averaging is enabled */
@@ -158,7 +143,7 @@ struct analog_gen {
 	enum sr_mq mq;
 	enum sr_mqflag mq_flags;
 	enum sr_unit unit;
-	enum analog_pattern_type pattern;
+	enum analog_channel pattern;
 	float amplitude;
 	float offset;
 	struct sr_datafeed_analog packet;
@@ -169,7 +154,6 @@ struct analog_gen {
 	unsigned int num_avgs; /* Number of samples averaged */
 };
 
-SR_PRIV void scopeio_free_analog_pattern(struct dev_context *devc);
 SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data);
 extern SR_PRIV int scopeio_sockfd;
 extern SR_PRIV struct sockaddr_in scopeio_server_addr;

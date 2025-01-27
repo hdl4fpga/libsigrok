@@ -29,7 +29,6 @@
 #include "libsigrok-internal.h"
 #include "protocol.h"
 
-#define DEFAULT_NUM_LOGIC_CHANNELS		8
 #define DEFAULT_LOGIC_PATTERN			PATTERN_SIGROK
 
 #define DEFAULT_NUM_ANALOG_CHANNELS		8
@@ -110,18 +109,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	struct sr_config *src;
 	struct analog_gen *ag;
 	GSList *l;
-	int num_logic_channels, num_analog_channels, pattern, i;
+	int num_analog_channels, i;
 	uint64_t limit_frames;
 	char channel_name[16];
 
-	num_logic_channels = DEFAULT_NUM_LOGIC_CHANNELS;
 	num_analog_channels = DEFAULT_NUM_ANALOG_CHANNELS;
 	limit_frames = DEFAULT_LIMIT_FRAMES;
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
 		case SR_CONF_NUM_LOGIC_CHANNELS:
-			num_logic_channels = g_variant_get_int32(src->data);
 			break;
 		case SR_CONF_NUM_ANALOG_CHANNELS:
 			num_analog_channels = g_variant_get_int32(src->data);
@@ -143,31 +140,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->capture_ratio = 20;
 	devc->stl = NULL;
 
-	if (num_logic_channels > 0) {
-		/* Logic channels, all in one channel group. */
-		cg = sr_channel_group_new(sdi, "Logic", NULL);
-		for (i = 0; i < num_logic_channels; i++) {
-			sprintf(channel_name, "D%d", i);
-			ch = sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE, channel_name);
-			cg->channels = g_slist_append(cg->channels, ch);
-		}
-	}
-
 	/* Analog channels, channel groups and pattern generators. */
 	devc->ch_ag = g_hash_table_new(g_direct_hash, g_direct_equal);
 	if (num_analog_channels > 0) {
-		/*
-		 * Have the waveform for analog patterns pre-generated. It's
-		 * supposed to be periodic, so the generator just needs to
-		 * access the prepared sample data (DDS style).
-		 */
-		pattern = 0;
+		int id = 0;
 		/* An "Analog" channel group with all analog channels in it. */
 		acg = sr_channel_group_new(sdi, "Analog", NULL);
 
 		for (i = 0; i < num_analog_channels; i++) {
 			snprintf(channel_name, 16, scopeio_analog_pattern_str[i]);
-			ch = sr_channel_new(sdi, i + num_logic_channels, SR_CHANNEL_ANALOG,
+			ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG,
 					TRUE, channel_name);
 			acg->channels = g_slist_append(acg->channels, ch);
 
@@ -190,14 +172,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			ag->packet.meaning->unit = ag->unit;
 			ag->packet.encoding->digits = DEFAULT_ANALOG_ENCODING_DIGITS;
 			ag->packet.spec->spec_digits = DEFAULT_ANALOG_SPEC_DIGITS;
-			// ag->packet.data = devc->analog_patterns[pattern];
-			ag->pattern = pattern;
+			// ag->packet.data = devc->analog_patterns[int id];
+			ag->id = id;
 			ag->avg_val = 0.0f;
 			ag->num_avgs = 0;
 			g_hash_table_insert(devc->ch_ag, ch, ag);
 
-			if (++pattern == ARRAY_SIZE(scopeio_analog_pattern_str))
-				pattern = 0;
+			id = (id+1) % ARRAY_SIZE(scopeio_analog_pattern_str);
 		}
 	}
 
@@ -232,7 +213,7 @@ static int config_get(uint32_t key, GVariant **data,
 	struct sr_channel *ch;
 	struct analog_gen *ag;
 	GVariant *mq_arr[2];
-	int pattern;
+	int id;
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -275,12 +256,12 @@ static int config_get(uint32_t key, GVariant **data,
 		/* Any channel in the group will do. */
 		ch = cg->channels->data;
 		if (ch->type == SR_CHANNEL_LOGIC) {
-			pattern = devc->logic_pattern;
-			*data = g_variant_new_string(logic_pattern_str[pattern]);
+			id = devc->logic_pattern;
+			*data = g_variant_new_string(logic_pattern_str[id]);
 		} else if (ch->type == SR_CHANNEL_ANALOG) {
 			ag = g_hash_table_lookup(devc->ch_ag, ch);
-			pattern = ag->pattern;
-			*data = g_variant_new_string(scopeio_analog_pattern_str[pattern]);
+			id = ag->id;
+			*data = g_variant_new_string(scopeio_analog_pattern_str[id]);
 		} else
 			return SR_ERR_BUG;
 		break;
@@ -390,7 +371,7 @@ static int config_set(uint32_t key, GVariant *data,
 				sr_dbg("Setting analog pattern for channel %s to %s",
 						ch->name, scopeio_analog_pattern_str[analog_pattern]);
 				ag = g_hash_table_lookup(devc->ch_ag, ch);
-				ag->pattern = analog_pattern;
+				ag->id = analog_pattern;
 			} else
 				return SR_ERR_BUG;
 		}
@@ -562,6 +543,7 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 		std_session_send_df_frame_end(sdi);
 
 	std_session_send_df_end(sdi);
+
 
 	if (devc->stl) {
 		soft_trigger_logic_free(devc->stl);

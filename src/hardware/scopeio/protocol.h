@@ -140,7 +140,7 @@ struct analog_gen {
 	enum sr_mq mq;
 	enum sr_mqflag mq_flags;
 	enum sr_unit unit;
-	enum analog_channel pattern;
+	enum analog_channel id;
 	float amplitude;
 	float offset;
 	struct sr_datafeed_analog packet;

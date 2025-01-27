@@ -75,12 +75,12 @@ SR_PRIV struct sockaddr_in scopeio_server_addr;
 #define CHANNELS      8
 #define SAMPLE_WIDTH 13
 
-float *decode (float *samples, const unsigned char *block, size_t length);
+float *decode (float *samples, int id, const unsigned char *block, size_t length);
 static int acc  = 0;
 static int data = 0;
 static int j = 0;
 
-float *decode (float *samples, const unsigned char *block, size_t length)
+float *decode (float *samples, int id, const unsigned char *block, size_t length)
 {
 	for (size_t i = 0; i < length; i++) {
 		unsigned int sample;
@@ -100,11 +100,10 @@ float *decode (float *samples, const unsigned char *block, size_t length)
 					sample = data;
 					sample >>= acc;
 					sample &= (1 << SAMPLE_WIDTH)-1;
-					if (j < 1) {
-						// fprintf(stderr,"---> %d\n", sample);
+					if (j == id) {
 						*samples++ = sample;
 					}
-					j = (j+1) % 8;
+					j = (j+1) % (GP17+1);
 				}
 			}
 			break;
@@ -154,7 +153,7 @@ static void send_analog_packet(
 		for (ptr = buffer; (size_t) (ptr-buffer) < sizeof(buffer); ptr += n) {
 			n = recvfrom(scopeio_sockfd, ptr, sizeof(buffer)-(ptr-buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
 		}
-		xxx = decode(xxx, buffer, sizeof(buffer));
+		xxx = decode(xxx, ag->id, buffer, sizeof(buffer));
 	}
 
 	struct sr_datafeed_packet packet;
@@ -241,6 +240,7 @@ static void send_analog_packet(
 	else
 		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
 
+		fprintf(stderr,"xxxxxxxxxxxxxx %d\n", ag->id);
 	if (!devc->avg) {
 
 		ag->packet.data = values;
@@ -315,8 +315,11 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 	g_hash_table_iter_init(&iter, devc->ch_ag);
 	while (g_hash_table_iter_next(&iter, NULL, &value)) {
 		send_analog_packet(value, sdi);
-		fprintf(stderr,"*************\n");
 	}
+
+	sr_dev_acquisition_stop(sdi);
+	std_session_send_df_frame_begin(sdi);
+	return G_SOURCE_CONTINUE;
 
 	devc->spent_us += todo_us;
 

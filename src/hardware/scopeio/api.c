@@ -138,12 +138,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	devc->cur_samplerate = SR_KHZ(200);
-	devc->num_logic_channels = num_logic_channels;
-	devc->logic_unitsize = (devc->num_logic_channels + 7) / 8;
-	devc->all_logic_channels_mask = 1UL << 0;
-	devc->all_logic_channels_mask <<= devc->num_logic_channels;
-	devc->all_logic_channels_mask--;
-	devc->logic_pattern = DEFAULT_LOGIC_PATTERN;
 	devc->num_analog_channels = num_analog_channels;
 	devc->limit_frames = limit_frames;
 	devc->capture_ratio = 20;
@@ -492,41 +486,32 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	struct dev_context *devc;
 	GSList *l;
 	struct sr_channel *ch;
-	int bitpos;
-	uint8_t mask;
-	struct sr_trigger *trigger;
+	// struct sr_trigger *trigger;
 
 	devc = sdi->priv;
-	devc->sent_samples = 0;
-	devc->sent_frame_samples = 0;
 
 	/* Setup triggers */
-	if ((trigger = sr_session_trigger_get(sdi->session))) {
-		int pre_trigger_samples = 0;
-		if (devc->limit_samples > 0)
-			pre_trigger_samples = (devc->capture_ratio * devc->limit_samples) / 100;
-		devc->stl = soft_trigger_logic_new(sdi, trigger, pre_trigger_samples);
-		if (!devc->stl)
-			return SR_ERR_MALLOC;
-
-		/* Disable all analog channels since using them when there are logic
-		 * triggers set up would require having pre-trigger sample buffers
-		 * for analog sample data.
-		 */
-		for (l = sdi->channels; l; l = l->next) {
-			ch = l->data;
-			if (ch->type == SR_CHANNEL_ANALOG)
-				ch->enabled = FALSE;
-		}
-	}
-	devc->trigger_fired = FALSE;
+	// if ((trigger = sr_session_trigger_get(sdi->session))) {
+		// devc->stl = soft_trigger_logic_new(sdi, trigger, pre_trigger_samples);
+		// if (!devc->stl)
+			// return SR_ERR_MALLOC;
+// 
+		// /* Disable all analog channels since using them when there are logic
+		//  * triggers set up would require having pre-trigger sample buffers
+		//  * for analog sample data.
+		//  */
+		// for (l = sdi->channels; l; l = l->next) {
+			// ch = l->data;
+			// if (ch->type == SR_CHANNEL_ANALOG)
+				// ch->enabled = FALSE;
+		// }
+	// }
 
 	/*
 	 * Determine the numbers of logic and analog channels that are
 	 * involved in the acquisition. Determine an offset and a mask to
 	 * remove excess logic data content before datafeed submission.
 	 */
-	devc->enabled_logic_channels = 0;
 	devc->enabled_analog_channels = 0;
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
@@ -548,16 +533,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		 * channels that are disabled while it might suppress data
 		 * from enabled channels at the same time.
 		 */
-		devc->enabled_logic_channels++;
 	}
-	devc->first_partial_logic_index = devc->enabled_logic_channels / 8;
-	bitpos = devc->enabled_logic_channels % 8;
-	mask = (1 << bitpos) - 1;
-	devc->first_partial_logic_mask = mask;
-	sr_dbg("num logic %zu, partial off %zu, mask 0x%02x.",
-		devc->enabled_logic_channels,
-		devc->first_partial_logic_index,
-		devc->first_partial_logic_mask);
 
 	sr_session_source_add(sdi->session, -1, 0, 100,
 			scopeio_prepare_data, (struct sr_dev_inst *)sdi);

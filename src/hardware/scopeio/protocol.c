@@ -64,26 +64,6 @@ SR_PRIV struct sockaddr_in scopeio_server_addr;
  * TODO: Need we apply a channel map, and enforce a dense representation
  * of the enabled channels' data?
  */
-static void logic_fixup_feed(struct dev_context *devc,
-		struct sr_datafeed_logic *logic)
-{
-	size_t fp_off;
-	uint8_t fp_mask;
-	size_t off, idx;
-	uint8_t *sample;
-
-	fp_off = devc->first_partial_logic_index;
-	fp_mask = devc->first_partial_logic_mask;
-	if (fp_off == logic->unitsize)
-		return;
-
-	for (off = 0; off < logic->length; off += logic->unitsize) {
-		sample = logic->data + off;
-		sample[fp_off] &= fp_mask;
-		for (idx = fp_off + 1; idx < logic->unitsize; idx++)
-			sample[idx] = 0x00;
-	}
-}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -140,8 +120,7 @@ static float values[1024];
 
 static void send_analog_packet(
 	struct analog_gen *ag,
-	struct sr_dev_inst *sdi, 
-	uint64_t *analog_sent)
+	struct sr_dev_inst *sdi)
 {
 	acc  = 0;
 	data = 0;
@@ -180,10 +159,6 @@ static void send_analog_packet(
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
-	uint64_t sending_now, to_avg;
-	int ag_pattern_pos;
-	unsigned int i;
-	float amplitude, offset, value;
 
 	if (!ag->ch || !ag->ch->enabled)
 		return;
@@ -267,9 +242,6 @@ static void send_analog_packet(
 		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
 
 	if (!devc->avg) {
-		// ag_pattern_pos = analog_pos % pattern->num_samples;
-		// sending_now = MIN(analog_todo, pattern->num_samples - ag_pattern_pos);
-		// ag->packet.num_samples = sending_now;
 
 		ag->packet.data = values;
 
@@ -277,7 +249,6 @@ static void send_analog_packet(
 		sr_session_send(sdi, &packet);
 
 		/* Whichever channel group gets there first. */
-		*analog_sent = MAX(*analog_sent, sending_now);
 	} 
 }
 
@@ -286,15 +257,10 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 {
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
 	struct analog_gen *ag;
 	GHashTableIter iter;
 	void *value;
-	uint64_t analog_sent, sending_now;
 	int64_t elapsed_us, limit_us, todo_us;
-	int64_t trigger_offset;
-	int pre_trigger_samples;
 
 	(void)fd;
 	(void)revents;
@@ -341,16 +307,14 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 	 */
 	// todo_us = samples_todo * G_USEC_PER_SEC / devc->cur_samplerate;
 
-	if (!devc->enabled_analog_channels)
 
 		/* Logic */
 
 		/* Analog, one channel at a time */
-		analog_sent = 0;
 
 	g_hash_table_iter_init(&iter, devc->ch_ag);
 	while (g_hash_table_iter_next(&iter, NULL, &value)) {
-		send_analog_packet(value, sdi, &analog_sent);
+		send_analog_packet(value, sdi);
 		fprintf(stderr,"*************\n");
 	}
 

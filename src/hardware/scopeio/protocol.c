@@ -240,7 +240,6 @@ static void send_analog_packet(
 	else
 		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
 
-		fprintf(stderr,"xxxxxxxxxxxxxx %d\n", ag->id);
 	if (!devc->avg) {
 
 		ag->packet.data = values;

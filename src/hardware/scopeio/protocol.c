@@ -78,7 +78,7 @@ SR_PRIV struct sockaddr_in scopeio_server_addr;
 float *decode (float *samples, int id, const unsigned char *block, size_t length);
 static int acc  = 0;
 static int data = 0;
-static int j = 0;
+static int j    = 0;
 
 float *decode (float *samples, int id, const unsigned char *block, size_t length)
 {
@@ -116,45 +116,52 @@ float *decode (float *samples, int id, const unsigned char *block, size_t length
 
 #define BLOCK 1024
 static float values[1024];
+static char unsigned data_buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
+ 
+
+SR_PRIV void scopeio_xx(void)
+{
+	acc  = 0;
+	data = 0;
+	j    = 0;
+
+	for(int i = 0; i < 16; i++) {
+		static union { char byte[4]; int word; } hton;
+		static unsigned char rqst_buff[256];
+		static unsigned char *rqst_ptr;
+
+		rqst_ptr = rqst_buff+sizeof(short);
+    	*rqst_ptr++ = 0x17;
+    	*rqst_ptr++ = 0x02;
+    	*rqst_ptr++ = 0x00;
+    	*rqst_ptr++ = (BLOCK-1)/256; //0x03;
+    	*rqst_ptr++ = (BLOCK-1)%256; //0xff;
+    	*rqst_ptr++ = 0x16;
+    	*rqst_ptr++ = 0x03;
+		hton.word = htonl((i << 10));
+    	*rqst_ptr++ = hton.byte[0] | 0x80;
+    	*rqst_ptr++ = hton.byte[1];
+    	*rqst_ptr++ = hton.byte[2];
+    	*rqst_ptr++ = hton.byte[3];
+		*(short *)rqst_buff = rqst_ptr-rqst_buff-sizeof(short);
+
+		sendto(scopeio_sockfd, rqst_buff, rqst_ptr-rqst_buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
+		socklen_t addr_len = sizeof(scopeio_server_addr);
+
+		static unsigned char *data_ptr;
+		int n;
+		for (data_ptr = data_buffer; (size_t) (data_ptr-data_buffer) < sizeof(data_buffer); data_ptr += n) {
+			n = recvfrom(scopeio_sockfd, data_ptr, sizeof(data_buffer)-(data_ptr-data_buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+		}
+	}
+}
 
 static void send_analog_packet(
 	struct analog_gen *ag,
 	struct sr_dev_inst *sdi)
 {
-	acc  = 0;
-	data = 0;
-	j = 0;
 	float *xxx = values;
-	for(int i = 0; i < 16; i++) {
-		static union { char byte[4]; int word; } hton;
-		static unsigned char buff[256];
-		static unsigned char *ptr;
-
-		ptr = buff+sizeof(short);
-    	*ptr++ = 0x17;
-    	*ptr++ = 0x02;
-    	*ptr++ = 0x00;
-    	*ptr++ = (BLOCK-1)/256; //0x03;
-    	*ptr++ = (BLOCK-1)%256; //0xff;
-    	*ptr++ = 0x16;
-    	*ptr++ = 0x03;
-		hton.word = htonl((i << 10));
-    	*ptr++ = hton.byte[0] | 0x80;
-    	*ptr++ = hton.byte[1];
-    	*ptr++ = hton.byte[2];
-    	*ptr++ = hton.byte[3];
-		*(short *)buff = ptr-buff-sizeof(short);
-
-		sendto(scopeio_sockfd, buff, ptr-buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
-		socklen_t addr_len = sizeof(scopeio_server_addr);
-		static char unsigned buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
-
-		int n;
-		for (ptr = buffer; (size_t) (ptr-buffer) < sizeof(buffer); ptr += n) {
-			n = recvfrom(scopeio_sockfd, ptr, sizeof(buffer)-(ptr-buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
-		}
-		xxx = decode(xxx, ag->id, buffer, sizeof(buffer));
-	}
+	xxx = decode(xxx, ag->id, data_buffer, sizeof(data_buffer));
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
@@ -256,7 +263,7 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 {
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;
-	struct analog_gen *ag;
+	// struct analog_gen *ag;
 	GHashTableIter iter;
 	void *value;
 	int64_t elapsed_us, limit_us, todo_us;
@@ -311,6 +318,7 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 
 		/* Analog, one channel at a time */
 
+	scopeio_xx();
 	g_hash_table_iter_init(&iter, devc->ch_ag);
 	while (g_hash_table_iter_next(&iter, NULL, &value)) {
 		send_analog_packet(value, sdi);

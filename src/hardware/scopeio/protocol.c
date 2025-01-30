@@ -101,9 +101,11 @@ float *decode (float *samples, int id, const unsigned char *block, size_t length
 					sample >>= acc;
 					sample &= (1 << SAMPLE_WIDTH)-1;
 					if (j == id) {
-						*samples++ = sample;
+						*samples++ = 3.3*(float)sample/4096.0;
+						// *samples++ = sample;
+						// fprintf(stderr,"================ %d\n", sample);
 					}
-					j = (j+1) % (GP17+1);
+					j = (j+1) % (ARRAY_SIZE(scopeio_analog_pattern_str));
 				}
 			}
 			break;
@@ -119,13 +121,10 @@ static float values[1024];
 static char unsigned data_buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
  
 
-SR_PRIV void scopeio_xx(void)
+static void scopeio_xx(void);
+static void scopeio_xx(void)
 {
-	acc  = 0;
-	data = 0;
-	j    = 0;
-
-	for(int i = 0; i < 16; i++) {
+	for(int i = 0; i < 1; i++) {
 		static union { char byte[4]; int word; } hton;
 		static unsigned char rqst_buff[256];
 		static unsigned char *rqst_ptr;
@@ -134,8 +133,8 @@ SR_PRIV void scopeio_xx(void)
     	*rqst_ptr++ = 0x17;
     	*rqst_ptr++ = 0x02;
     	*rqst_ptr++ = 0x00;
-    	*rqst_ptr++ = (BLOCK-1)/256; //0x03;
-    	*rqst_ptr++ = (BLOCK-1)%256; //0xff;
+    	*rqst_ptr++ = (BLOCK-1)/256;
+    	*rqst_ptr++ = (BLOCK-1)%256;
     	*rqst_ptr++ = 0x16;
     	*rqst_ptr++ = 0x03;
 		hton.word = htonl((i << 10));
@@ -160,8 +159,12 @@ static void send_analog_packet(
 	struct analog_gen *ag,
 	struct sr_dev_inst *sdi)
 {
-	float *xxx = values;
-	xxx = decode(xxx, ag->id, data_buffer, sizeof(data_buffer));
+	float *last = values;
+	acc  = 0;
+	data = 0;
+	j    = 0;
+
+	last = decode(values, ag->id, data_buffer, sizeof(data_buffer));
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;
@@ -251,7 +254,7 @@ static void send_analog_packet(
 
 		ag->packet.data = values;
 
-		ag->packet.num_samples = xxx-values; //630;
+		ag->packet.num_samples = last-values; //630;
 		sr_session_send(sdi, &packet);
 
 		/* Whichever channel group gets there first. */

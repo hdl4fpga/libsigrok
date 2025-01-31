@@ -119,13 +119,14 @@ float *decode (float *samples, int id, const unsigned char *block, size_t length
 #define BLOCK  1024
 #define BLOCKS 16
 static float values[BLOCKS*BLOCK];
-#define XXX ((6+BLOCK+2*BLOCK/256));
+#define XXX ((6+BLOCK+2*BLOCK/256))
 static char unsigned data_buffer[BLOCKS*XXX];
  
 
 static void scopeio_xx(void);
 static void scopeio_xx(void)
 {
+	unsigned char *data_ptr;
 	data_ptr = data_buffer;
 	for(int i = 0; i < BLOCKS; i++) {
 		static union { char byte[4]; int word; } hton;
@@ -150,10 +151,9 @@ static void scopeio_xx(void)
 		sendto(scopeio_sockfd, rqst_buff, rqst_ptr-rqst_buff, 0, (const struct sockaddr *)&scopeio_server_addr, sizeof(scopeio_server_addr));
 		socklen_t addr_len = sizeof(scopeio_server_addr);
 
-		static unsigned char *data_ptr;
 		int n;
-		for (int j = 0 ;  j < XXX; j += n;) {
-			n = recvfrom(scopeio_sockfd, data_ptr, XXX-j, 0, (struct sockaddr *)&scopeio_server_addr, &addr_len));
+		for (int j = 0 ;  j < XXX; j += n) {
+			n = recvfrom(scopeio_sockfd, data_ptr, XXX-j, 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
 			data_ptr += n;
 		}
 	}
@@ -169,6 +169,7 @@ static void send_analog_packet(
 	j    = 0;
 
 	last = decode(values, ag->id, data_buffer, sizeof(data_buffer));
+		// fprintf(stderr,"================ %d\n", last-values);
 
 	struct sr_datafeed_packet packet;
 	struct dev_context *devc;

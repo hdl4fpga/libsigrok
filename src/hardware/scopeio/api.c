@@ -94,10 +94,18 @@ static const int32_t trigger_matches[] = {
 	SR_TRIGGER_EDGE,
 };
 
+// static const uint64_t samplerates[] = {
+	// SR_HZ(1024000/8),
+	// SR_HZ(1024000/1),
+	// SR_HZ(1024000/10),
+// };
+
 static const uint64_t samplerates[] = {
-	SR_HZ(1),
-	SR_GHZ(1),
-	SR_HZ(1),
+	SR_HZ(1024000/1),
+	SR_HZ(1024000/2),
+	SR_HZ(1024000/4),
+	SR_HZ(1024000/5),
+	SR_HZ(1024000/8),
 };
 
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
@@ -134,7 +142,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	sdi->model = g_strdup("ScopeIO device");
 
 	devc = g_malloc0(sizeof(struct dev_context));
-	devc->cur_samplerate = SR_KHZ(200);
+	// devc->cur_samplerate = SR_KHZ(200);
+	devc->cur_samplerate = samplerates[0];
 	devc->num_analog_channels = num_analog_channels;
 	devc->limit_frames = limit_frames;
 	devc->capture_ratio = 20;
@@ -419,7 +428,8 @@ static int config_list(uint32_t key, GVariant **data,
 		case SR_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 		case SR_CONF_SAMPLERATE:
-			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
+			*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
+			// *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 			break;
 		case SR_CONF_TRIGGER_MATCH:
 			*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));

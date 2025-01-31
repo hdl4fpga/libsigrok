@@ -116,15 +116,18 @@ float *decode (float *samples, int id, const unsigned char *block, size_t length
 	return samples;
 }
 
-#define BLOCK 1024
-static float values[1024];
-static char unsigned data_buffer[6+BLOCK+2*((BLOCK+256-1)/256)];
+#define BLOCK  1024
+#define BLOCKS 16
+static float values[BLOCKS*BLOCK];
+#define XXX ((6+BLOCK+2*BLOCK/256));
+static char unsigned data_buffer[BLOCKS*XXX];
  
 
 static void scopeio_xx(void);
 static void scopeio_xx(void)
 {
-	for(int i = 0; i < 1; i++) {
+	data_ptr = data_buffer;
+	for(int i = 0; i < BLOCKS; i++) {
 		static union { char byte[4]; int word; } hton;
 		static unsigned char rqst_buff[256];
 		static unsigned char *rqst_ptr;
@@ -149,8 +152,9 @@ static void scopeio_xx(void)
 
 		static unsigned char *data_ptr;
 		int n;
-		for (data_ptr = data_buffer; (size_t) (data_ptr-data_buffer) < sizeof(data_buffer); data_ptr += n) {
-			n = recvfrom(scopeio_sockfd, data_ptr, sizeof(data_buffer)-(data_ptr-data_buffer), 0, (struct sockaddr *)&scopeio_server_addr, &addr_len);
+		for (int j = 0 ;  j < XXX; j += n;) {
+			n = recvfrom(scopeio_sockfd, data_ptr, XXX-j, 0, (struct sockaddr *)&scopeio_server_addr, &addr_len));
+			data_ptr += n;
 		}
 	}
 }

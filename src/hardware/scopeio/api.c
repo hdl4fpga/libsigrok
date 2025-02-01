@@ -142,7 +142,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	sdi->model = g_strdup("ScopeIO device");
 
 	devc = g_malloc0(sizeof(struct dev_context));
-	// devc->cur_samplerate = SR_KHZ(200);
 	devc->cur_samplerate = samplerates[0];
 	devc->num_analog_channels = num_analog_channels;
 	devc->limit_frames = limit_frames;
@@ -181,7 +180,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			ag->packet.meaning->unit = ag->unit;
 			ag->packet.encoding->digits = DEFAULT_ANALOG_ENCODING_DIGITS;
 			ag->packet.spec->spec_digits = DEFAULT_ANALOG_SPEC_DIGITS;
-			// ag->packet.data = devc->analog_patterns[int id];
 			ag->id = id;
 			ag->avg_val = 0.0f;
 			ag->num_avgs = 0;

@@ -47,14 +47,12 @@ static const char *logic_pattern_str[] = {
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_NUM_LOGIC_CHANNELS,
 	SR_CONF_NUM_ANALOG_CHANNELS,
 	SR_CONF_LIMIT_FRAMES,
 };
 
 static const uint32_t drvopts[] = {
 	SR_CONF_SCOPEIO_DEV,
-	SR_CONF_LOGIC_ANALYZER,
 	SR_CONF_OSCILLOSCOPE,
 };
 
@@ -64,41 +62,14 @@ static const uint32_t devopts[] = {
 	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_AVERAGING | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_AVG_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-};
-
-static const uint32_t devopts_cg_logic[] = {
-	SR_CONF_PATTERN_MODE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 };
 
 static const uint32_t devopts_cg_analog_group[] = {
-	SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OFFSET | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint32_t devopts_cg_analog_channel[] = {
 	SR_CONF_MEASURED_QUANTITY | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PATTERN_MODE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OFFSET | SR_CONF_GET | SR_CONF_SET,
 };
-
-static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
-};
-
-// static const uint64_t samplerates[] = {
-	// SR_HZ(1024000/8),
-	// SR_HZ(1024000/1),
-	// SR_HZ(1024000/10),
-// };
 
 static const uint64_t samplerates[] = {
 	SR_HZ(1024000/1),
@@ -126,8 +97,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_NUM_LOGIC_CHANNELS:
-			break;
 		case SR_CONF_NUM_ANALOG_CHANNELS:
 			num_analog_channels = g_variant_get_int32(src->data);
 			break;
@@ -220,7 +189,6 @@ static int config_get(uint32_t key, GVariant **data,
 	struct sr_channel *ch;
 	struct analog_gen *ag;
 	GVariant *mq_arr[2];
-	int id;
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -239,61 +207,13 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->limit_frames);
 		break;
-	case SR_CONF_AVERAGING:
-		*data = g_variant_new_boolean(devc->avg);
-		break;
-	case SR_CONF_AVG_SAMPLES:
-		*data = g_variant_new_uint64(devc->avg_samples);
-		break;
 	case SR_CONF_MEASURED_QUANTITY:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
 		/* Any channel in the group will do. */
 		ch = cg->channels->data;
-		if (ch->type != SR_CHANNEL_ANALOG)
-			return SR_ERR_ARG;
 		ag = g_hash_table_lookup(devc->ch_ag, ch);
 		mq_arr[0] = g_variant_new_uint32(ag->mq);
 		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
 		*data = g_variant_new_tuple(mq_arr, 2);
-		break;
-	case SR_CONF_PATTERN_MODE:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		/* Any channel in the group will do. */
-		ch = cg->channels->data;
-		if (ch->type == SR_CHANNEL_LOGIC) {
-			id = devc->logic_pattern;
-			*data = g_variant_new_string(logic_pattern_str[id]);
-		} else if (ch->type == SR_CHANNEL_ANALOG) {
-			ag = g_hash_table_lookup(devc->ch_ag, ch);
-			id = ag->id;
-			*data = g_variant_new_string(scopeio_analog_pattern_str[id]);
-		} else
-			return SR_ERR_BUG;
-		break;
-	case SR_CONF_AMPLITUDE:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		/* Any channel in the group will do. */
-		ch = cg->channels->data;
-		if (ch->type != SR_CHANNEL_ANALOG)
-			return SR_ERR_ARG;
-		ag = g_hash_table_lookup(devc->ch_ag, ch);
-		*data = g_variant_new_double(ag->amplitude);
-		break;
-	case SR_CONF_OFFSET:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		/* Any channel in the group will do. */
-		ch = cg->channels->data;
-		if (ch->type != SR_CHANNEL_ANALOG)
-			return SR_ERR_ARG;
-		ag = g_hash_table_lookup(devc->ch_ag, ch);
-		*data = g_variant_new_double(ag->offset);
-		break;
-	case SR_CONF_CAPTURE_RATIO:
-		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
 	default:
 		return SR_ERR_NA;
@@ -310,7 +230,6 @@ static int config_set(uint32_t key, GVariant *data,
 	struct sr_channel *ch;
 	GVariant *mq_tuple_child;
 	GSList *l;
-	int logic_pattern, analog_pattern;
 
 	devc = sdi->priv;
 
@@ -329,21 +248,9 @@ static int config_set(uint32_t key, GVariant *data,
 	case SR_CONF_LIMIT_FRAMES:
 		devc->limit_frames = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_AVERAGING:
-		devc->avg = g_variant_get_boolean(data);
-		sr_dbg("%s averaging", devc->avg ? "Enabling" : "Disabling");
-		break;
-	case SR_CONF_AVG_SAMPLES:
-		devc->avg_samples = g_variant_get_uint64(data);
-		sr_dbg("Setting averaging rate to %" PRIu64, devc->avg_samples);
-		break;
 	case SR_CONF_MEASURED_QUANTITY:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
 		for (l = cg->channels; l; l = l->next) {
 			ch = l->data;
-			if (ch->type != SR_CHANNEL_ANALOG)
-				return SR_ERR_ARG;
 			ag = g_hash_table_lookup(devc->ch_ag, ch);
 			mq_tuple_child = g_variant_get_child_value(data, 0);
 			ag->mq = g_variant_get_uint32(mq_tuple_child);
@@ -351,62 +258,6 @@ static int config_set(uint32_t key, GVariant *data,
 			ag->mq_flags = g_variant_get_uint64(mq_tuple_child);
 			g_variant_unref(mq_tuple_child);
 		}
-		break;
-	case SR_CONF_PATTERN_MODE:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		logic_pattern = std_str_idx(data, ARRAY_AND_SIZE(logic_pattern_str));
-		analog_pattern = std_str_idx(data, ARRAY_AND_SIZE(scopeio_analog_pattern_str));
-		if (logic_pattern < 0 && analog_pattern < 0)
-			return SR_ERR_ARG;
-		for (l = cg->channels; l; l = l->next) {
-			ch = l->data;
-			if (ch->type == SR_CHANNEL_LOGIC) {
-				if (logic_pattern == -1)
-					return SR_ERR_ARG;
-				sr_dbg("Setting logic pattern to %s",
-						logic_pattern_str[logic_pattern]);
-				devc->logic_pattern = logic_pattern;
-				/* Might as well do this now, these are static. */
-				if (logic_pattern == PATTERN_ALL_LOW)
-					memset(devc->logic_data, 0x00, LOGIC_BUFSIZE);
-				else if (logic_pattern == PATTERN_ALL_HIGH)
-					memset(devc->logic_data, 0xff, LOGIC_BUFSIZE);
-			} else if (ch->type == SR_CHANNEL_ANALOG) {
-				if (analog_pattern == -1)
-					return SR_ERR_ARG;
-				sr_dbg("Setting analog pattern for channel %s to %s",
-						ch->name, scopeio_analog_pattern_str[analog_pattern]);
-				ag = g_hash_table_lookup(devc->ch_ag, ch);
-				ag->id = analog_pattern;
-			} else
-				return SR_ERR_BUG;
-		}
-		break;
-	case SR_CONF_AMPLITUDE:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		for (l = cg->channels; l; l = l->next) {
-			ch = l->data;
-			if (ch->type != SR_CHANNEL_ANALOG)
-				return SR_ERR_ARG;
-			ag = g_hash_table_lookup(devc->ch_ag, ch);
-			ag->amplitude = g_variant_get_double(data);
-		}
-		break;
-	case SR_CONF_OFFSET:
-		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
-		for (l = cg->channels; l; l = l->next) {
-			ch = l->data;
-			if (ch->type != SR_CHANNEL_ANALOG)
-				return SR_ERR_ARG;
-			ag = g_hash_table_lookup(devc->ch_ag, ch);
-			ag->offset = g_variant_get_double(data);
-		}
-		break;
-	case SR_CONF_CAPTURE_RATIO:
-		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 	default:
 		return SR_ERR_NA;
@@ -420,51 +271,28 @@ static int config_list(uint32_t key, GVariant **data,
 {
 	struct sr_channel *ch;
 
-	if (!cg) {
-		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
-			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-		case SR_CONF_SAMPLERATE:
-			*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
-			// *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
-			break;
-		case SR_CONF_TRIGGER_MATCH:
-			*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
-			break;
-		default:
-			return SR_ERR_NA;
-		}
-	} else {
-		ch = cg->channels->data;
-		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
-			if (ch->type == SR_CHANNEL_LOGIC)
-				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_logic));
-			else if (ch->type == SR_CHANNEL_ANALOG) {
-				if (strcmp(cg->name, "Analog") == 0)
-					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
-				else
-					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
-			}
-			else
-				return SR_ERR_BUG;
-			break;
-		case SR_CONF_PATTERN_MODE:
-			/* The analog group (with all 4 channels) shall not have a pattern property. */
-			if (strcmp(cg->name, "Analog") == 0)
-				return SR_ERR_NA;
-
-			if (ch->type == SR_CHANNEL_LOGIC)
-				*data = g_variant_new_strv(ARRAY_AND_SIZE(logic_pattern_str));
-			else if (ch->type == SR_CHANNEL_ANALOG)
-				*data = g_variant_new_strv(ARRAY_AND_SIZE(scopeio_analog_pattern_str));
-			else
-				return SR_ERR_BUG;
-			break;
-		default:
-			return SR_ERR_NA;
-		}
+	(void) sdi;
+	ch = cg->channels->data;
+	switch (key) {
+	case SR_CONF_SCAN_OPTIONS:
+	case SR_CONF_DEVICE_OPTIONS:
+		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+	case SR_CONF_SAMPLERATE:
+		// *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
+		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
+		break;
+	// case SR_CONF_DEVICE_OPTIONS:
+		// if (ch->type == SR_CHANNEL_ANALOG) {
+			// if (strcmp(cg->name, "Analog") == 0)
+				// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
+			// else
+				// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+		// }
+		// else
+			// return SR_ERR_BUG;
+		// break;
+	default:
+		return SR_ERR_NA;
 	}
 
 	return SR_OK;

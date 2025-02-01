@@ -43,65 +43,8 @@
 #define DEFAULT_ANALOG_AMPLITUDE		10
 #define DEFAULT_ANALOG_OFFSET			0.
 
-/* Logic patterns we can generate. */
-enum logic_pattern_type {
-	/**
-	 * Spells "sigrok" across 8 channels using '0's (with '1's as
-	 * "background") when displayed using the 'bits' output format.
-	 * The pattern is repeated every 8 channels, shifted to the right
-	 * in time by one bit.
-	 */
-	PATTERN_SIGROK,
-
-	/** Pseudo-random values on all channels. */
-	PATTERN_RANDOM,
-
-	/**
-	 * Incrementing number across 8 channels. The pattern is repeated
-	 * every 8 channels, shifted to the right in time by one bit.
-	 */
-	PATTERN_INC,
-
-	/**
-	 * Single bit "walking" across all logic channels by being
-	 * shifted across data lines, restarting after the last line
-	 * was used. An all-zero (all-one) state is inserted to prevent
-	 * repetitive patterns (e.g. with 8 data lines, every 8th state
-	 * would show the same line state)
-	 */
-	PATTERN_WALKING_ONE,
-	PATTERN_WALKING_ZERO,
-
-	/** All channels have a low logic state. */
-	PATTERN_ALL_LOW,
-
-	/** All channels have a high logic state. */
-	PATTERN_ALL_HIGH,
-
-	/**
-	 * Mimics a cable squid. Derived from the "works with" logo
-	 * to occupy a larger number of channels yet "painting"
-	 * something that can get recognized.
-	 */
-	PATTERN_SQUID,
-
-	/** Gray encoded data, like rotary encoder signals. */
-	PATTERN_GRAYCODE,
-};
-
-/* Analog patterns we can generate. */
-enum analog_channel {
-	GN14,
-	GP14,
-	GN15,
-	GP15,
-	GN16,
-	GP16,
-	GN17,
-	GP17
-};
-
-extern SR_PRIV const char *scopeio_analog_pattern_str[GP17+1];
+enum analog_channel { GN14, GP14, GN15, GP15, GN16, GP16, GN17, GP17 };
+extern SR_PRIV const char *scopeio_analog_pattern_str[8];
 
 struct analog_pattern {
 	float data[ANALOG_BUFSIZE];
@@ -119,8 +62,6 @@ struct dev_context {
 	int64_t start_us;
 	int64_t spent_us;
 	uint64_t step;
-	/* There is only ever one logic channel group, so its pattern goes here. */
-	enum logic_pattern_type logic_pattern;
 	uint8_t logic_data[LOGIC_BUFSIZE];
 	/* Analog */
 	// struct analog_pattern *analog_patterns[ARRAY_SIZE(analog_pattern_str)];

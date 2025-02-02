@@ -33,18 +33,6 @@
 
 #define DEFAULT_NUM_ANALOG_CHANNELS		8
 
-/* Note: No spaces allowed because of sigrok-cli. */
-static const char *logic_pattern_str[] = {
-	"sigrok",
-	"random",
-	"incremental",
-	"walking-one",
-	"walking-zero",
-	"all-low",
-	"all-high",
-	"squid",
-	"graycode",
-};
 
 static const uint32_t scanopts[] = {
 	SR_CONF_NUM_ANALOG_CHANNELS,
@@ -62,9 +50,6 @@ static const uint32_t devopts[] = {
 	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-};
-
-static const uint32_t devopts_cg_analog_group[] = {
 };
 
 static const uint32_t devopts_cg_analog_channel[] = {
@@ -272,27 +257,26 @@ static int config_list(uint32_t key, GVariant **data,
 	struct sr_channel *ch;
 
 	(void) sdi;
-	ch = cg->channels->data;
-	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
-		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
-		// *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
-		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
-		break;
-	// case SR_CONF_DEVICE_OPTIONS:
-		// if (ch->type == SR_CHANNEL_ANALOG) {
-			// if (strcmp(cg->name, "Analog") == 0)
-				// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
-			// else
-				// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
-		// }
-		// else
-			// return SR_ERR_BUG;
-		// break;
-	default:
-		return SR_ERR_NA;
+	if (!cg) {
+		switch (key) {
+		case SR_CONF_SCAN_OPTIONS:
+		case SR_CONF_DEVICE_OPTIONS:
+			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+		case SR_CONF_SAMPLERATE:
+			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
+			break;
+		default:
+			return SR_ERR_NA;
+		}
+	} else {
+		ch = cg->channels->data;
+		switch (key) {
+		case SR_CONF_DEVICE_OPTIONS:
+			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+			break;
+		default:
+			return SR_ERR_NA;
+		}
 	}
 
 	return SR_OK;

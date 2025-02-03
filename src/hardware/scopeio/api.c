@@ -71,6 +71,10 @@ static const uint64_t samplerates[] = {
 	SR_HZ(1024000/8),
 };
 
+static const char *trigger_slopes[] = {
+	"r", "f",
+};
+
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
 {
 	struct dev_context *devc;
@@ -199,6 +203,14 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->limit_frames);
 		break;
+	case SR_CONF_MEASURED_QUANTITY:
+		/* Any channel in the group will do. */
+		ch = cg->channels->data;
+		ag = g_hash_table_lookup(devc->ch_ag, ch);
+		mq_arr[0] = g_variant_new_uint32(ag->mq);
+		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
+		*data = g_variant_new_tuple(mq_arr, 2);
+		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		if (!strncmp(devc->trigger_slope, "POS", 3)) {
 			*data = g_variant_new_string("r");
@@ -208,14 +220,6 @@ static int config_get(uint32_t key, GVariant **data,
 			sr_dbg("Unknown trigger slope: '%s'.", devc->trigger_slope);
 			return SR_ERR_NA;
 		}
-		break;
-	case SR_CONF_MEASURED_QUANTITY:
-		/* Any channel in the group will do. */
-		ch = cg->channels->data;
-		ag = g_hash_table_lookup(devc->ch_ag, ch);
-		mq_arr[0] = g_variant_new_uint32(ag->mq);
-		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
-		*data = g_variant_new_tuple(mq_arr, 2);
 		break;
 	default:
 		return SR_ERR_NA;
@@ -261,6 +265,14 @@ static int config_set(uint32_t key, GVariant *data,
 			g_variant_unref(mq_tuple_child);
 		}
 		break;
+	case SR_CONF_TRIGGER_SLOPE:
+		int idx;
+		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_slopes))) < 0)
+			return SR_ERR_ARG;
+		g_free(devc->trigger_slope);
+		devc->trigger_slope = g_strdup((trigger_slopes[idx][0] == 'r') ? "POS" : "NEG");
+		break;
+		// return rigol_ds_config_set(sdi, ":TRIG:EDGE:SLOP %s", devc->trigger_slope);
 	default:
 		return SR_ERR_NA;
 	}

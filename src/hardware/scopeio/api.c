@@ -50,6 +50,8 @@ static const uint32_t devopts[] = {
 	SR_CONF_LIMIT_MSEC    | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_FRAMES  | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE    | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_SLOPE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_LEVEL | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint32_t devopts_cg_analog_group[] = {
@@ -197,6 +199,16 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->limit_frames);
 		break;
+	case SR_CONF_TRIGGER_SLOPE:
+		if (!strncmp(devc->trigger_slope, "POS", 3)) {
+			*data = g_variant_new_string("r");
+		} else if (!strncmp(devc->trigger_slope, "NEG", 3)) {
+			*data = g_variant_new_string("f");
+		} else {
+			sr_dbg("Unknown trigger slope: '%s'.", devc->trigger_slope);
+			return SR_ERR_NA;
+		}
+		break;
 	case SR_CONF_MEASURED_QUANTITY:
 		/* Any channel in the group will do. */
 		ch = cg->channels->data;
@@ -274,12 +286,16 @@ static int config_list(uint32_t key, GVariant **data,
 		}
 	} else {
 		struct sr_channel *ch = cg->channels->data;
+
 		switch (key) {
 		case SR_CONF_DEVICE_OPTIONS:
-			if (strcmp(cg->name, "Analog") == 0)
-				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
-			else
-				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+			if (ch->type == SR_CHANNEL_ANALOG) {
+				// if (strcmp(cg->name, "Analog") == 0)
+					// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
+				// else
+					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+			} else
+				return SR_ERR_BUG;
 			break;
 		default:
 			return SR_ERR_NA;

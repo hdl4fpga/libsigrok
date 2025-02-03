@@ -65,6 +65,8 @@ struct dev_context {
 	uint8_t logic_data[LOGIC_BUFSIZE];
 	/* Analog */
 	// struct analog_pattern *analog_patterns[ARRAY_SIZE(analog_pattern_str)];
+	char *trigger_slope;
+	float trigger_level;
 	int32_t num_analog_channels;
 	GHashTable *ch_ag;
 	gboolean avg; /* True if averaging is enabled */

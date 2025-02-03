@@ -47,9 +47,14 @@ static const uint32_t drvopts[] = {
 static const uint32_t devopts[] = {
 	SR_CONF_CONTINUOUS,
 	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_LIMIT_MSEC    | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_LIMIT_FRAMES  | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_SAMPLERATE    | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+};
+
+static const uint32_t devopts_cg_analog_group[] = {
+	// SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET,
+	// SR_CONF_OFFSET | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint32_t devopts_cg_analog_channel[] = {
@@ -254,7 +259,6 @@ static int config_set(uint32_t key, GVariant *data,
 static int config_list(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
-	struct sr_channel *ch;
 
 	(void) sdi;
 	if (!cg) {
@@ -269,10 +273,13 @@ static int config_list(uint32_t key, GVariant **data,
 			return SR_ERR_NA;
 		}
 	} else {
-		ch = cg->channels->data;
+		struct sr_channel *ch = cg->channels->data;
 		switch (key) {
 		case SR_CONF_DEVICE_OPTIONS:
-			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+			if (strcmp(cg->name, "Analog") == 0)
+				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
+			else
+				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
 			break;
 		default:
 			return SR_ERR_NA;

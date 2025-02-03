@@ -267,10 +267,11 @@ static int config_set(uint32_t key, GVariant *data,
 		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		int idx;
-		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_slopes))) < 0)
-			return SR_ERR_ARG;
-		g_free(devc->trigger_slope);
-		devc->trigger_slope = g_strdup((trigger_slopes[idx][0] == 'r') ? "POS" : "NEG");
+		// if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_slopes))) < 0)
+			// return SR_ERR_ARG;
+		// g_free(devc->trigger_slope);
+		// strcpy(devc->trigger_slope, g_strdup((trigger_slopes[idx][0] == 'r') ? "POS" : "NEG"));
+		strcpy(devc->trigger_slope, "POS");
 		break;
 		// return rigol_ds_config_set(sdi, ":TRIG:EDGE:SLOP %s", devc->trigger_slope);
 	default:
@@ -293,6 +294,9 @@ static int config_list(uint32_t key, GVariant **data,
 		case SR_CONF_SAMPLERATE:
 			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 			break;
+		case SR_CONF_TRIGGER_SLOPE:
+			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
+			break;
 		default:
 			return SR_ERR_NA;
 		}
@@ -308,6 +312,9 @@ static int config_list(uint32_t key, GVariant **data,
 					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
 			} else
 				return SR_ERR_BUG;
+			break;
+		case SR_CONF_TRIGGER_SLOPE:
+			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
 			break;
 		default:
 			return SR_ERR_NA;
@@ -424,7 +431,6 @@ static int dev_open(struct sr_dev_inst *sdi)
 		return SR_ERR;
 	}
 	memset(&scopeio_server_addr, 0, sizeof(scopeio_server_addr));
-
 	scopeio_server_addr.sin_family = AF_INET; // IPv4
 	scopeio_server_addr.sin_port = htons(PORT);
 	scopeio_server_addr.sin_addr.s_addr = INADDR_ANY;

@@ -46,12 +46,13 @@ static const uint32_t drvopts[] = {
 
 static const uint32_t devopts[] = {
 	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC    | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_FRAMES  | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE    | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_SLOPE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_LEVEL | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_LIMIT_SAMPLES  | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_LIMIT_MSEC     | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_LIMIT_FRAMES   | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_SAMPLERATE     | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	// SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_SLOPE  | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_LEVEL  | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint32_t devopts_cg_analog_group[] = {
@@ -72,7 +73,7 @@ static const uint64_t samplerates[] = {
 };
 
 static const char *trigger_slopes[] = {
-	"r", "f",
+	"POS", "NEG",
 };
 
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
@@ -112,6 +113,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->limit_frames = limit_frames;
 	devc->capture_ratio = 20;
 	devc->stl = NULL;
+	strcpy(devc->trigger_slope, "POS");
 
 	/* Analog channels, channel groups and pattern generators. */
 	devc->ch_ag = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -211,11 +213,14 @@ static int config_get(uint32_t key, GVariant **data,
 		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
 		*data = g_variant_new_tuple(mq_arr, 2);
 		break;
+	// case SR_CONF_TRIGGER_SOURCE:
+		// *data = g_variant_new_string("GN14");
+		// break;
 	case SR_CONF_TRIGGER_SLOPE:
 		if (!strncmp(devc->trigger_slope, "POS", 3)) {
-			*data = g_variant_new_string("r");
+			*data = g_variant_new_string("POS");
 		} else if (!strncmp(devc->trigger_slope, "NEG", 3)) {
-			*data = g_variant_new_string("f");
+			*data = g_variant_new_string("NEG");
 		} else {
 			sr_dbg("Unknown trigger slope: '%s'.", devc->trigger_slope);
 			return SR_ERR_NA;
@@ -265,13 +270,9 @@ static int config_set(uint32_t key, GVariant *data,
 			g_variant_unref(mq_tuple_child);
 		}
 		break;
+	// case SR_CONF_TRIGGER_SOURCE:
+		// break;
 	case SR_CONF_TRIGGER_SLOPE:
-		int idx;
-		// if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_slopes))) < 0)
-			// return SR_ERR_ARG;
-		// g_free(devc->trigger_slope);
-		// strcpy(devc->trigger_slope, g_strdup((trigger_slopes[idx][0] == 'r') ? "POS" : "NEG"));
-		strcpy(devc->trigger_slope, "POS");
 		break;
 		// return rigol_ds_config_set(sdi, ":TRIG:EDGE:SLOP %s", devc->trigger_slope);
 	default:
@@ -313,6 +314,9 @@ static int config_list(uint32_t key, GVariant **data,
 			} else
 				return SR_ERR_BUG;
 			break;
+		// case SR_CONF_TRIGGER_SOURCE:
+			// *data = g_variant_new_strv(devc->model->trigger_sources, devc->model->num_trigger_sources);
+		// break;
 		case SR_CONF_TRIGGER_SLOPE:
 			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
 			break;

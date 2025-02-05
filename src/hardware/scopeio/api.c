@@ -50,7 +50,7 @@ static const uint32_t devopts[] = {
 	SR_CONF_LIMIT_MSEC     | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_FRAMES   | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE     | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	// SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_SLOPE  | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_LEVEL  | SR_CONF_GET | SR_CONF_SET,
 };
@@ -213,9 +213,10 @@ static int config_get(uint32_t key, GVariant **data,
 		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
 		*data = g_variant_new_tuple(mq_arr, 2);
 		break;
-	// case SR_CONF_TRIGGER_SOURCE:
-		// *data = g_variant_new_string("GN14");
-		// break;
+	case SR_CONF_TRIGGER_SOURCE:
+		fprintf(stderr, "config_get\n");
+		*data = g_variant_new_string("GN14");
+		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		if (!strncmp(devc->trigger_slope, "POS", 3)) {
 			*data = g_variant_new_string("POS");
@@ -270,8 +271,9 @@ static int config_set(uint32_t key, GVariant *data,
 			g_variant_unref(mq_tuple_child);
 		}
 		break;
-	// case SR_CONF_TRIGGER_SOURCE:
-		// break;
+	case SR_CONF_TRIGGER_SOURCE:
+		fprintf(stderr, "config_set\n");
+		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		break;
 		// return rigol_ds_config_set(sdi, ":TRIG:EDGE:SLOP %s", devc->trigger_slope);
@@ -295,6 +297,11 @@ static int config_list(uint32_t key, GVariant **data,
 		case SR_CONF_SAMPLERATE:
 			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 			break;
+		case SR_CONF_TRIGGER_SOURCE:
+			fprintf(stderr, "config_list 0\n");
+				/* Can't know this until we have the exact model. */
+			return SR_ERR_ARG;
+			break;
 		case SR_CONF_TRIGGER_SLOPE:
 			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
 			break;
@@ -314,9 +321,10 @@ static int config_list(uint32_t key, GVariant **data,
 			} else
 				return SR_ERR_BUG;
 			break;
-		// case SR_CONF_TRIGGER_SOURCE:
-			// *data = g_variant_new_strv(devc->model->trigger_sources, devc->model->num_trigger_sources);
-		// break;
+		case SR_CONF_TRIGGER_SOURCE:
+		fprintf(stderr, "config_list\n");
+			*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
+			break;
 		case SR_CONF_TRIGGER_SLOPE:
 			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
 			break;

@@ -300,7 +300,8 @@ static int config_list(uint32_t key, GVariant **data,
 		case SR_CONF_TRIGGER_SOURCE:
 			fprintf(stderr, "config_list 0\n");
 				/* Can't know this until we have the exact model. */
-			return SR_ERR_ARG;
+			*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
+			// return SR_ERR_ARG;
 			break;
 		case SR_CONF_TRIGGER_SLOPE:
 			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));

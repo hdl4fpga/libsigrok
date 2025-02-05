@@ -180,8 +180,11 @@ static int dev_clear(const struct sr_dev_driver *di)
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+static int config_get(
+	uint32_t key, 
+	GVariant **data,
+	const struct sr_dev_inst *sdi, 
+	const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct sr_channel *ch;
@@ -214,7 +217,6 @@ static int config_get(uint32_t key, GVariant **data,
 		*data = g_variant_new_tuple(mq_arr, 2);
 		break;
 	case SR_CONF_TRIGGER_SOURCE:
-		fprintf(stderr, "config_get\n");
 		*data = g_variant_new_string("GN14");
 		break;
 	case SR_CONF_TRIGGER_SLOPE:
@@ -227,6 +229,9 @@ static int config_get(uint32_t key, GVariant **data,
 			return SR_ERR_NA;
 		}
 		break;
+	case SR_CONF_TRIGGER_LEVEL:
+		*data = g_variant_new_double(devc->trigger_level);
+		break;
 	default:
 		return SR_ERR_NA;
 	}
@@ -234,8 +239,11 @@ static int config_get(uint32_t key, GVariant **data,
 	return SR_OK;
 }
 
-static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+static int config_set(
+	uint32_t key,
+	GVariant *data,
+	const struct sr_dev_inst *sdi,
+	const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct analog_gen *ag;
@@ -272,11 +280,12 @@ static int config_set(uint32_t key, GVariant *data,
 		}
 		break;
 	case SR_CONF_TRIGGER_SOURCE:
-		fprintf(stderr, "config_set\n");
 		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		break;
-		// return rigol_ds_config_set(sdi, ":TRIG:EDGE:SLOP %s", devc->trigger_slope);
+	case SR_CONF_TRIGGER_LEVEL:
+		devc->trigger_level = g_variant_get_double(data);
+		break;
 	default:
 		return SR_ERR_NA;
 	}
@@ -318,7 +327,6 @@ static int config_list(
 			return SR_ERR_NA;
 		break;
 	case SR_CONF_TRIGGER_SOURCE:
-		fprintf(stderr, "config_list\n");
 		*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
 		break;
 	case SR_CONF_TRIGGER_SLOPE:

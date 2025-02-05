@@ -287,51 +287,42 @@ static int config_set(uint32_t key, GVariant *data,
 static int config_list(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
-
 	(void) sdi;
-	if (!cg) {
-		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
-			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-		case SR_CONF_SAMPLERATE:
-			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
-			break;
-		case SR_CONF_TRIGGER_SOURCE:
-			fprintf(stderr, "config_list 0\n");
-				/* Can't know this until we have the exact model. */
-			*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
-			// return SR_ERR_ARG;
-			break;
-		case SR_CONF_TRIGGER_SLOPE:
-			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
-			break;
-		default:
-			return SR_ERR_NA;
-		}
-	} else {
-		struct sr_channel *ch = cg->channels->data;
 
-		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+	switch (key) {
+	case SR_CONF_SCAN_OPTIONS:
+		if (cg != NULL)
+			return SR_ERR_NA;
+	case SR_CONF_DEVICE_OPTIONS:
+		if (cg == NULL)
+			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+		else { 
+			struct sr_channel *ch = cg->channels->data;
+
 			if (ch->type == SR_CHANNEL_ANALOG) {
 				// if (strcmp(cg->name, "Analog") == 0)
 					// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
 				// else
-					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
 			} else
 				return SR_ERR_BUG;
-			break;
-		case SR_CONF_TRIGGER_SOURCE:
-		fprintf(stderr, "config_list\n");
-			*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
-			break;
-		case SR_CONF_TRIGGER_SLOPE:
-			*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
-			break;
-		default:
-			return SR_ERR_NA;
 		}
+		break;
+	case SR_CONF_SAMPLERATE:
+		if (cg == NULL)
+			*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
+		else
+			return SR_ERR_NA;
+		break;
+	case SR_CONF_TRIGGER_SOURCE:
+		fprintf(stderr, "config_list\n");
+		*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
+		break;
+	case SR_CONF_TRIGGER_SLOPE:
+		*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
+		break;
+	default:
+		return SR_ERR_NA;
 	}
 
 	return SR_OK;

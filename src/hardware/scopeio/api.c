@@ -47,12 +47,14 @@ static const uint32_t drvopts[] = {
 static const uint32_t devopts[] = {
 	SR_CONF_CONTINUOUS,
 	SR_CONF_LIMIT_SAMPLES  | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC     | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_FRAMES   | SR_CONF_GET | SR_CONF_SET,
+//	SR_CONF_LIMIT_MSEC     | SR_CONF_GET | SR_CONF_SET,
+//	SR_CONF_LIMIT_FRAMES   | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE     | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_SLOPE  | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_LEVEL  | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_DATA_SOURCE    | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_MEASURED_QUANTITY | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint32_t devopts_cg_analog_group[] = {
@@ -61,7 +63,6 @@ static const uint32_t devopts_cg_analog_group[] = {
 };
 
 static const uint32_t devopts_cg_analog_channel[] = {
-	SR_CONF_MEASURED_QUANTITY | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint64_t samplerates[] = {
@@ -112,7 +113,6 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->num_analog_channels = num_analog_channels;
 	devc->limit_frames = limit_frames;
 	devc->capture_ratio = 20;
-	devc->stl = NULL;
 	strcpy(devc->trigger_slope, "POS");
 
 	/* Analog channels, channel groups and pattern generators. */
@@ -200,10 +200,10 @@ static int config_get(
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
 	case SR_CONF_LIMIT_SAMPLES:
-		*data = g_variant_new_uint64(devc->limit_samples);
+		*data = g_variant_new_uint64(-1);
 		break;
 	case SR_CONF_LIMIT_MSEC:
-		*data = g_variant_new_uint64(devc->limit_msec);
+		*data = g_variant_new_uint64(-1);
 		break;
 	case SR_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->limit_frames);
@@ -215,6 +215,9 @@ static int config_get(
 		mq_arr[0] = g_variant_new_uint32(ag->mq);
 		mq_arr[1] = g_variant_new_uint64(ag->mq_flags);
 		*data = g_variant_new_tuple(mq_arr, 2);
+		break;
+	case SR_CONF_DATA_SOURCE:
+		*data = g_variant_new_string("Live");
 		break;
 	case SR_CONF_TRIGGER_SOURCE:
 		*data = g_variant_new_string("GN14");
@@ -258,12 +261,8 @@ static int config_set(
 		devc->cur_samplerate = g_variant_get_uint64(data);
 		break;
 	case SR_CONF_LIMIT_SAMPLES:
-		devc->limit_msec = 0;
-		devc->limit_samples = g_variant_get_uint64(data);
 		break;
 	case SR_CONF_LIMIT_MSEC:
-		devc->limit_msec = g_variant_get_uint64(data);
-		devc->limit_samples = 0;
 		break;
 	case SR_CONF_LIMIT_FRAMES:
 		devc->limit_frames = g_variant_get_uint64(data);
@@ -278,6 +277,8 @@ static int config_set(
 			ag->mq_flags = g_variant_get_uint64(mq_tuple_child);
 			g_variant_unref(mq_tuple_child);
 		}
+		break;
+	case SR_CONF_DATA_SOURCE:
 		break;
 	case SR_CONF_TRIGGER_SOURCE:
 		break;
@@ -309,14 +310,14 @@ static int config_list(
 		if (cg == NULL)
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 		else { 
-			struct sr_channel *ch = cg->channels->data;
-
-			if (ch->type == SR_CHANNEL_ANALOG) {
-				// if (strcmp(cg->name, "Analog") == 0)
-					// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
-				// else
-				*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
-			} else
+			// struct sr_channel *ch = cg->channels->data;
+// 
+			// if (ch->type == SR_CHANNEL_ANALOG) {
+				if (strcmp(cg->name, "Analog") == 0)
+					*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_group));
+				else
+				// *data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog_channel));
+			// } else
 				return SR_ERR_BUG;
 		}
 		break;
@@ -326,8 +327,12 @@ static int config_list(
 		else
 			return SR_ERR_NA;
 		break;
+	case SR_CONF_DATA_SOURCE:
+		const char *xxx [] = {"Live"} ;
+		*data = g_variant_new_strv(ARRAY_AND_SIZE(xxx));
+		break;
 	case SR_CONF_TRIGGER_SOURCE:
-		*data = g_variant_new_strv(scopeio_analog_pattern_str, GP17+1);
+		*data = g_variant_new_strv(ARRAY_AND_SIZE(scopeio_analog_pattern_str));
 		break;
 	case SR_CONF_TRIGGER_SLOPE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
@@ -341,71 +346,8 @@ static int config_list(
 
 static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 {
-	struct dev_context *devc;
-	GSList *l;
-	struct sr_channel *ch;
-	// struct sr_trigger *trigger;
-
-	devc = sdi->priv;
-
-	/* Setup triggers */
-	// if ((trigger = sr_session_trigger_get(sdi->session))) {
-		// devc->stl = soft_trigger_logic_new(sdi, trigger, pre_trigger_samples);
-		// if (!devc->stl)
-			// return SR_ERR_MALLOC;
-// 
-		// /* Disable all analog channels since using them when there are logic
-		//  * triggers set up would require having pre-trigger sample buffers
-		//  * for analog sample data.
-		//  */
-		// for (l = sdi->channels; l; l = l->next) {
-			// ch = l->data;
-			// if (ch->type == SR_CHANNEL_ANALOG)
-				// ch->enabled = FALSE;
-		// }
-	// }
-
-	/*
-	 * Determine the numbers of logic and analog channels that are
-	 * involved in the acquisition. Determine an offset and a mask to
-	 * remove excess logic data content before datafeed submission.
-	 */
-	devc->enabled_analog_channels = 0;
-	for (l = sdi->channels; l; l = l->next) {
-		ch = l->data;
-		if (!ch->enabled)
-			continue;
-		if (ch->type == SR_CHANNEL_ANALOG) {
-			devc->enabled_analog_channels++;
-			continue;
-		}
-		if (ch->type != SR_CHANNEL_LOGIC)
-			continue;
-		/*
-		 * TODO: Need we create a channel map here, such that the
-		 * session datafeed packets will have a dense representation
-		 * of the enabled channels' data? For example store channels
-		 * D3 and D5 in bit positions 0 and 1 respectively, when all
-		 * other channels are disabled? The current implementation
-		 * generates a sparse layout, might provide data for logic
-		 * channels that are disabled while it might suppress data
-		 * from enabled channels at the same time.
-		 */
-	}
-
-	sr_session_source_add(sdi->session, -1, 0, 100,
-			scopeio_prepare_data, (struct sr_dev_inst *)sdi);
-
+	sr_session_source_add(sdi->session, -1, 0, 100, scopeio_prepare_data, (struct sr_dev_inst *) sdi);
 	std_session_send_df_header(sdi);
-
-	if (devc->limit_frames > 0)
-		std_session_send_df_frame_begin(sdi);
-
-	/* We use this timestamp to decide how many more samples to send. */
-	devc->start_us = g_get_monotonic_time();
-	devc->spent_us = 0;
-	devc->step = 0;
-
 	return SR_OK;
 }
 
@@ -421,11 +363,6 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 
 	std_session_send_df_end(sdi);
 
-
-	if (devc->stl) {
-		soft_trigger_logic_free(devc->stl);
-		devc->stl = NULL;
-	}
 
 	return SR_OK;
 }

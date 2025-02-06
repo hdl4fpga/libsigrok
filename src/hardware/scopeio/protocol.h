@@ -56,12 +56,7 @@ struct scopeio_devcontext {
 
 struct dev_context {
 	uint64_t cur_samplerate;
-	uint64_t limit_samples;
-	uint64_t limit_msec;
 	uint64_t limit_frames;
-	int64_t start_us;
-	int64_t spent_us;
-	uint64_t step;
 	uint8_t logic_data[LOGIC_BUFSIZE];
 	/* Analog */
 	// struct analog_pattern *analog_patterns[ARRAY_SIZE(analog_pattern_str)];
@@ -71,11 +66,9 @@ struct dev_context {
 	GHashTable *ch_ag;
 	gboolean avg; /* True if averaging is enabled */
 	uint64_t avg_samples;
-	size_t enabled_analog_channels;
 	/* Triggers */
 	uint64_t capture_ratio;
 	gboolean trigger_fired;
-	struct soft_trigger_logic *stl;
 };
 
 struct analog_gen {

@@ -271,10 +271,8 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 {
 	struct sr_dev_inst *sdi;
 	struct dev_context *devc;
-	// struct analog_gen *ag;
 	GHashTableIter iter;
 	void *value;
-	int64_t elapsed_us, limit_us, todo_us;
 
 	(void)fd;
 	(void)revents;
@@ -282,74 +280,13 @@ SR_PRIV int scopeio_prepare_data(int fd, int revents, void *cb_data)
 	sdi = cb_data;
 	devc = sdi->priv;
 
-	/* Just in case. */
-	if (devc->cur_samplerate <= 0
-			&& devc->num_analog_channels <= 0) {
-		sr_dev_acquisition_stop(sdi);
-		return G_SOURCE_CONTINUE;
-	}
-
-	/* What time span should we send samples for? */
-	elapsed_us = g_get_monotonic_time() - devc->start_us;
-	limit_us = 1000 * devc->limit_msec;
-	if (limit_us > 0 && limit_us < elapsed_us)
-		todo_us = MAX(0, limit_us - devc->spent_us);
-	else
-		todo_us = MAX(0, elapsed_us - devc->spent_us);
-
-	if (devc->limit_samples > 0) {
-		// if (devc->limit_samples < devc->sent_samples)
-			// samples_todo = 0;
-		// else if (devc->limit_samples - devc->sent_samples < samples_todo)
-			// samples_todo = devc->limit_samples - devc->sent_samples;
-	}
-
-	// if (samples_todo == 0)
-		// return G_SOURCE_CONTINUE;
-
-	if (devc->limit_frames) {
-		/* Never send more samples than a frame can fit... */
-		// samples_todo = MIN(samples_todo, SAMPLES_PER_FRAME);
-		/* ...or than we need to finish the current frame. */
-		// samples_todo = MIN(samples_todo,
-			// SAMPLES_PER_FRAME - devc->sent_frame_samples);
-	}
-
-	/* Calculate the actual time covered by this run back from the sample
-	 * count, rounded towards zero. This avoids getting stuck on a too-low
-	 * time delta with no samples being sent due to round-off.
-	 */
-	// todo_us = samples_todo * G_USEC_PER_SEC / devc->cur_samplerate;
-
-
-		/* Logic */
-
-		/* Analog, one channel at a time */
-
 	scopeio_xx();
 	g_hash_table_iter_init(&iter, devc->ch_ag);
 	while (g_hash_table_iter_next(&iter, NULL, &value)) {
 		send_analog_packet(value, sdi);
 	}
-
-	sr_dev_acquisition_stop(sdi);
 	std_session_send_df_frame_begin(sdi);
+	sr_dev_acquisition_stop(sdi);
 	return G_SOURCE_CONTINUE;
 
-	devc->spent_us += todo_us;
-
-	if (devc->limit_frames ) {
-		std_session_send_df_frame_end(sdi);
-		devc->limit_frames--;
-		if (!devc->limit_frames) {
-			sr_dbg("Requested number of frames reached.");
-			sr_dev_acquisition_stop(sdi);
-		}
-	}
-
-	if (devc->limit_frames) {
-		std_session_send_df_frame_begin(sdi);
-	}
-
-	return G_SOURCE_CONTINUE;
 }
